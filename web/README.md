@@ -8,11 +8,13 @@ Test it locally (it needs a web server, not `file://`):
 
     uv run --no-project python -m http.server 8080 --directory web
 
+`./serve_all.sh` in the repository root runs it alongside the map server and TensorBoard.
+
 ## Update the models
 
 From the repository root, listing the world model first and then each refiner:
 
-    uv run --with onnx --with onnxscript python web/export_models.py --ckpt models/world.pt models/regional.pt
+    uv run --with onnx --with onnxscript python web/export_models.py --ckpt models/world.pt models/regional.pt models/local.pt
 
 ## Test
 

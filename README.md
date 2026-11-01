@@ -62,6 +62,22 @@ real data is not corrected for the map projection.
 | `--device` | GPU if available | Use `cpu` while training, as sharing a 4 GB GPU risks running out of memory |
 | `--data`, `--cache-dir` | ETOPO file, `cache` | Source of the seed `-1` data |
 
+## Run everything together
+
+```sh
+./serve_all.sh                # add --device cpu while training on a small GPU
+```
+
+This starts the map server (port 8000), the browser version (port 8080) and TensorBoard (port
+6006), listening on all network interfaces with no authentication. Set `HOST=127.0.0.1` to keep them
+on this computer. Ctrl+C stops all three.
+
+## Browser version
+
+`web/` is a static page that runs the models in the browser with no server code, ready for GitHub
+Pages. It has no real-Earth mode, since the data is too large to ship with it. If models change,
+export them again. See [web/README.md](web/README.md).
+
 ## The three levels
 
 | Level | Model | Scale | A 128 px crop covers | Decides | Parameters |
@@ -134,6 +150,8 @@ It only handles a level-0 generator. Refiners are not supported.
 | `serve.py` | OpenLayers map server and seed `-1` mode |
 | `evaluate.py` | Copying check |
 | `test_seamless.py` | Alignment and seamlessness tests |
+| `serve_all.sh` | Starts the map, browser version and TensorBoard together |
+| `web/` | Static browser version, its model export and tests |
 | `models/` | Trained models |
 | `docs/figures/` | Images used by the documentation |
 

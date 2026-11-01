@@ -1,5 +1,5 @@
 {
- "px_per_degree": 30.0,
+ "px_per_degree": 120.0,
  "levels": [
   {
    "file": "models/level0.onnx",
@@ -13,6 +13,14 @@
   },
   {
    "file": "models/level1.onnx",
+   "stride": 4,
+   "origin": 17,
+   "layers": 4,
+   "kind": "refiner",
+   "latent_ch": 16
+  },
+  {
+   "file": "models/level2.onnx",
    "stride": 4,
    "origin": 17,
    "layers": 4,

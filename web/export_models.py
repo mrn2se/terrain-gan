@@ -1,7 +1,7 @@
 """Convert trained checkpoints for the static page, and write reference data for its tests.
 
 Usage, from the repository root:
-    uv run --with onnx --with onnxscript python web/export_models.py --ckpt models/world.pt models/regional.pt
+    uv run --with onnx --with onnxscript python web/export_models.py --ckpt models/world.pt models/regional.pt models/local.pt
 """
 
 import argparse
