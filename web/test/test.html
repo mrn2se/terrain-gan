@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><link rel="icon" href="data:,"><title>Terrain page tests</title></head>
+<body>
+<pre id="out">running</pre>
+<script type="module">
+import * as ort from "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/ort.webgpu.min.mjs";
+import { worldLatents, worldRandn } from "../js/noise.js";
+import { loadTerrain, ORT_BASE } from "../js/terrain.js";
+
+const results = [];
+function worst(actual, expected) {
+  if (actual.length !== expected.length) return Infinity;
+  let max = 0;
+  for (let i = 0; i < actual.length; i++) max = Math.max(max, Math.abs(actual[i] - expected[i]));
+  return max;
+}
+function check(name, difference, tolerance) {
+  results.push({ name, difference, tolerance, ok: difference <= tolerance });
+}
+
+try {
+  ort.env.wasm.wasmPaths = ORT_BASE;
+  ort.env.wasm.numThreads = 1;
+  const reference = await (await fetch("reference.json")).json();
+  for (const c of reference.randn) {
+    const actual = worldRandn(c.seed, c.tag, c.channels, c.xs[0], c.ys[0], c.xs.length, c.ys.length);
+    check(`noise seed ${c.seed} tag ${c.tag}`, worst(actual, c.values), 1e-6);
+  }
+  const provider = new URLSearchParams(location.search).get("provider") || "wasm";
+  const terrain = await loadTerrain(ort, [provider]);
+  const world = terrain.manifest.levels[0];
+  const l = reference.latents;
+  const latents = worldLatents(l.seed, l.ix0, l.iy0, l.nx, l.ny, world.fine_ch, world.coarse_ch, world.coarse_cells);
+  check("latents", worst(latents, l.values), 1e-5);
+
+  for (const t of reference.tiles) {
+    const start = performance.now();
+    const actual = await terrain.render(t.level, t.seed, t.x0, t.y0, t.width, t.height);
+    const ms = Math.round(performance.now() - start);
+    check(`level ${t.level} matches PyTorch (${ms} ms)`, worst(actual, t.values), provider === "wasm" ? 2e-4 : 2e-3);
+  }
+
+  // Separately rendered neighbours must agree with one big render.
+  const top = terrain.manifest.levels.length - 1;
+  const whole = await terrain.render(top, 5, -100, 40, 300, 100);
+  const left = await terrain.render(top, 5, -100, 40, 150, 100);
+  const right = await terrain.render(top, 5, 50, 40, 150, 100);
+  let seam = 0;
+  for (let r = 0; r < 100; r++) {
+    for (let c = 0; c < 150; c++) {
+      seam = Math.max(seam, Math.abs(whole[r * 300 + c] - left[r * 150 + c]), Math.abs(whole[r * 300 + 150 + c] - right[r * 150 + c]));
+    }
+  }
+  check("tiles agree across a seam", seam, 1e-3);
+  window.testResults = { provider: terrain.provider, results };
+} catch (error) {
+  window.testResults = { error: String(error), results };
+}
+document.getElementById("out").textContent = JSON.stringify(window.testResults, null, 1);
+</script>
+</body>
+</html>
