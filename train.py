@@ -160,6 +160,7 @@ def main():
     p.add_argument("--lr", type=float, default=0.0002)
     p.add_argument("--r1", type=float, default=10.0, help="R1 penalty weight")
     p.add_argument("--r1-every", type=int, default=8)
+    p.add_argument("--no-pixel-norm", action="store_true", help="train the generator without pixel normalisation")
     p.add_argument("--ema", type=float, default=0.999)
     p.add_argument("--workers", type=int, default=6)
     p.add_argument("--log-every", type=int, default=100)
@@ -189,7 +190,7 @@ def main():
     )
     real_iter = iter(loader)
 
-    gen = Generator().to(device)
+    gen = Generator(pixel_norm=not args.no_pixel_norm).to(device)
     disc = Discriminator(args.size).to(device)
     ema = copy.deepcopy(gen).eval().requires_grad_(False)
     opt_g = torch.optim.Adam(gen.parameters(), lr=args.lr, betas=(0.0, 0.99))

@@ -119,12 +119,17 @@ class Generator(nn.Module):
     # S = 16, 8, 4, 2, which sums to 37.5, i.e. the pixel whose centre is at 37.5.
     origin = 37
 
-    def __init__(self, fine_ch=48, coarse_ch=16, coarse_cells=8, channels=(192, 128, 64, 32)):
+    def __init__(self, fine_ch=48, coarse_ch=16, coarse_cells=8, channels=(192, 128, 64, 32), pixel_norm=True):
         super().__init__()
         self.config = dict(
-            fine_ch=fine_ch, coarse_ch=coarse_ch, coarse_cells=coarse_cells, channels=tuple(channels)
+            fine_ch=fine_ch,
+            coarse_ch=coarse_ch,
+            coarse_cells=coarse_cells,
+            channels=tuple(channels),
+            pixel_norm=pixel_norm,
         )
         self.fine_ch, self.coarse_ch, self.coarse_cells = fine_ch, coarse_ch, coarse_cells
+        self.pixel_norm = pixel_norm
         latent_ch = fine_ch + coarse_ch
         self.mapping = nn.Sequential(
             nn.Conv2d(latent_ch, channels[0], 1),
@@ -164,8 +169,9 @@ class Generator(nn.Module):
             for conv, inject in zip(convs, injections):
                 x = conv(x)
                 x = F.leaky_relu(inject(x, noise_fn(layer, stride, x.shape[2], x.shape[3])), 0.2)
-                # Per-pixel, so unlike batch or instance norm it keeps tiles independent.
-                x = x / (x.square().mean(1, keepdim=True) + 1e-8).sqrt()
+                if self.pixel_norm:
+                    # Per-pixel, so unlike batch or instance norm it keeps tiles independent.
+                    x = x / (x.square().mean(1, keepdim=True) + 1e-8).sqrt()
                 layer += 1
         return self.out(x)
 
