@@ -1,6 +1,6 @@
 """Render a piece of the endless world from a trained generator.
 
-Usage: uv run generate.py --ckpt runs/world/latest.pt runs/regional/latest.pt --lon 12.5 --lat -40 --size 512 --out tile
+Usage: uv run generate.py --ckpt models/world.pt models/regional.pt models/local.pt --lon 12.5 --lat -40 --size 512 --out tile
 
 --lon/--lat give the centre of the piece on an infinite plane, so values outside
 the real -180..180 / -90..90 range work too. They are not places on the real Earth.
@@ -22,10 +22,6 @@ def load_model(path, device):
     model = model_class(**state["config"]).to(device).eval().requires_grad_(False)
     model.load_state_dict(state["ema"])
     return model, state["px_per_degree"]
-
-
-def load_generator(path, device):
-    return load_model(path, device)
 
 
 def load_cascade(paths, device):

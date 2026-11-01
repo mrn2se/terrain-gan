@@ -1,6 +1,6 @@
 """Browse the endless world in OpenLayers.
 
-Usage: uv run serve.py [--ckpt runs/world/latest.pt runs/regional/latest.pt] [--port 8000] [--device cpu]
+Usage: uv run serve.py [--ckpt models/world.pt models/regional.pt models/local.pt] [--port 8000] [--device cpu]
 Checkpoints are reloaded when they change, so this can run alongside training.
 World seed -1 shows the real elevation data instead of the GAN.
 """
@@ -162,7 +162,7 @@ class TileRenderer:
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--ckpt", nargs="+", default=["runs/world/latest.pt"], help="world generator, then any refiners")
+    p.add_argument("--ckpt", nargs="+", default=["models/world.pt", "models/regional.pt", "models/local.pt"], help="world generator, then any refiners")
     p.add_argument("--data", default="data/ETOPO_2022_v1_30s_N90W180_bed.tif", help="source of the seed -1 ground truth")
     p.add_argument("--cache-dir", default="cache")
     p.add_argument("--host", default="127.0.0.1")

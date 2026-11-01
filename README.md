@@ -42,7 +42,7 @@ gives a coarser result, as in the table below.
 ## Browse the map
 
 ```sh
-uv run serve.py --ckpt models/world.pt models/regional.pt models/local.pt
+uv run serve.py
 ```
 
 Open <http://127.0.0.1:8000/>. Pan, zoom and change the seed; the map picks the
@@ -56,7 +56,7 @@ real data is not corrected for the map projection.
 
 | Option | Default | Purpose |
 |---|---|---|
-| `--ckpt` | `runs/world/latest.pt` | Checkpoints, coarsest first; reloaded when they change |
+| `--ckpt` | The three models in `models/` | Checkpoints, coarsest first; reloaded when they change |
 | `--host` | `127.0.0.1` | Use `0.0.0.0` to allow other machines. There is no authentication |
 | `--port` | `8000` | Port |
 | `--device` | GPU if available | Use `cpu` while training, as sharing a 4 GB GPU risks running out of memory |

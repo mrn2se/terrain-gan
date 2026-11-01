@@ -4,7 +4,7 @@ For generated tiles, finds the best match anywhere on the real Earth (in all
 rotations and flips) by normalised correlation. Real crops, excluding their own
 location, give the baseline: fakes matching much better than that are copies.
 
-Usage: uv run evaluate.py --ckpt runs/world/latest.pt --npy cache/..._x16.npy
+Usage: uv run evaluate.py --ckpt models/world.pt --npy cache/..._x16.npy
 """
 
 import argparse
@@ -15,7 +15,7 @@ import numpy as np
 import torch
 from PIL import Image
 
-from generate import load_generator
+from generate import load_model
 from terrain_gan import meters_to_norm, norm_to_meters, relief_image, render, save_image_grid
 
 BAND_LATS = (0, 30, -30, 50, -50, 65)
@@ -93,7 +93,7 @@ def main():
     p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     args = p.parse_args()
 
-    gen, ppd = load_generator(args.ckpt, args.device)
+    gen, ppd = load_model(args.ckpt, args.device)
     earth = meters_to_norm(np.load(args.npy).astype(np.float32)).astype(np.float32)
     bands = earth_bands(earth, ppd, args.size)
     rng = np.random.default_rng(0)
