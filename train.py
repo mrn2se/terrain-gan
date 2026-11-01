@@ -20,10 +20,29 @@ from terrain_gan import (
     meters_to_norm,
     norm_to_meters,
     relief_image,
+    terrain_stats,
     render,
     save_image_grid,
     world_latents,
 )
+
+
+def cache_downsampled(npy, factor):
+    """Block-averaged copy of a cached raster, for the coarser levels."""
+    path = npy.with_name(f"{npy.stem}_x{factor}.npy")
+    if path.exists():
+        return path
+    print(f"downsampling to {path} ...", flush=True)
+    data = np.load(npy, mmap_mode="r")
+    rows, cols = data.shape[0] // factor, data.shape[1] // factor
+    out = np.empty((rows, cols), dtype=np.int16)
+    for r in range(rows):
+        block = np.asarray(data[r * factor : (r + 1) * factor, : cols * factor], dtype=np.float32)
+        out[r] = np.round(block.reshape(factor, cols, factor).mean((0, 2)))
+    tmp = path.with_suffix(".tmp.npy")
+    np.save(tmp, out)
+    tmp.rename(path)
+    return path
 
 
 def cache_raster(tif, cache_dir):
@@ -31,7 +50,7 @@ def cache_raster(tif, cache_dir):
     tif = Path(tif)
     path = Path(cache_dir) / f"{tif.stem}.npy"
     with rasterio.open(tif) as src:
-        px_per_degree = round(1.0 / src.res[0])
+        px_per_degree = round(1.0 / src.res[0], 6)
         if path.exists():
             return path, px_per_degree
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -67,8 +86,10 @@ class TerrainCrops(IterableDataset):
             # Equirectangular pixels get narrower towards the poles, so take more of them.
             width = int(round(size / math.cos(math.radians(lat))))
             row = int((90.0 - lat) * self.ppd) - size // 2
-            col = int(rng.integers(0, cols - width))
-            crop = np.asarray(data[row : row + size, col : col + width], dtype=np.float32)
+            # Longitude wraps around the date line.
+            start = int(rng.integers(cols))
+            col = np.arange(start, start + width) % cols
+            crop = np.asarray(data[row : row + size][:, col], dtype=np.float32)
             if (crop > 0).mean() < self.min_land and rng.random() > self.ocean_keep:
                 continue
             if width != size:
@@ -101,6 +122,24 @@ def sample_fake(gen, batch, size, device, rng):
     return out[:, :, dy : dy + size, dx : dx + size]
 
 
+@torch.no_grad()
+def variety_report(ema, real_iter, reference, batch, size, km_per_px, device, rng):
+    """Compare how much tiles differ from each other, for generated and real terrain."""
+    count = 256 // batch
+    if not reference:
+        crops = [next(real_iter).numpy()[:, 0] for _ in range(count)]
+        reference.update(terrain_stats(norm_to_meters(np.concatenate(crops)), km_per_px))
+    tiles = [sample_fake(ema, batch, size, device, rng).cpu().numpy()[:, 0] for _ in range(count)]
+    fake = terrain_stats(norm_to_meters(np.concatenate(tiles)), km_per_px)
+    report = {}
+    for name in fake:
+        # Wasserstein distance: 0 when the two distributions over tiles are identical.
+        report[f"distance/{name}"] = float(np.abs(np.sort(fake[name]) - np.sort(reference[name])).mean())
+        report[f"spread_fake/{name}"] = float(fake[name].std())
+        report[f"spread_real/{name}"] = float(reference[name].std())
+    return report
+
+
 def save_samples(ema, reals, step, out_dir, km_per_px, size, device):
     fakes = [norm_to_meters(render(ema, s, 0, 0, size, size, device)) for s in range(24)]
     reals = [norm_to_meters(r[0].numpy()) for r in reals[:8]]
@@ -113,6 +152,8 @@ def main():
     p.add_argument("--data", default="ETOPO_2022_v1_30s_N90W180_bed.tif")
     p.add_argument("--out", default="runs/default")
     p.add_argument("--cache-dir", default="cache")
+    p.add_argument("--downsample", type=int, default=1, help="block-average the data by this factor")
+    p.add_argument("--min-land", type=float, default=0.3, help="crops below this land fraction are mostly skipped")
     p.add_argument("--size", type=int, default=128, help="training crop size, power of two")
     p.add_argument("--batch", type=int, default=16)
     p.add_argument("--steps", type=int, default=200_000)
@@ -133,9 +174,12 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     npy, ppd = cache_raster(args.data, args.cache_dir)
+    if args.downsample > 1:
+        npy = cache_downsampled(npy, args.downsample)
+        ppd /= args.downsample
     km_per_px = 111.32 / ppd
     loader = DataLoader(
-        TerrainCrops(npy, ppd, args.size),
+        TerrainCrops(npy, ppd, args.size, min_land=args.min_land),
         batch_size=args.batch,
         num_workers=args.workers,
         prefetch_factor=4,
@@ -171,6 +215,7 @@ def main():
         flush=True,
     )
 
+    reference = {}
     start, start_step = time.time(), step
     last_r1 = None
     while step < args.steps:
@@ -227,8 +272,17 @@ def main():
                 writer.add_scalar("loss/r1", last_r1, step)
             writer.flush()
         if step % args.sample_every == 0:
-            grid = save_samples(ema, real.cpu(), step, out_dir, km_per_px, args.size, device)
-            writer.add_image("samples (last row real)", grid, step, dataformats="HWC")
+            # Benchmarking every new tile shape can take most of the GPU memory.
+            with torch.backends.cudnn.flags(enabled=True, benchmark=False):
+                grid = save_samples(ema, real.cpu(), step, out_dir, km_per_px, args.size, device)
+                writer.add_image("samples (last row real)", grid, step, dataformats="HWC")
+                world = relief_image(norm_to_meters(render(ema, 0, 0, 0, 1024, 512, device)), km_per_px)
+                Image.fromarray(world).save(out_dir / f"world_{step:07d}.png")
+                writer.add_image("world", world, step, dataformats="HWC")
+                report = variety_report(ema, real_iter, reference, args.batch, args.size, km_per_px, device, rng)
+                for name, value in report.items():
+                    writer.add_scalar(f"variety/{name}", value, step)
+                print(f"variety {step} " + " ".join(f"{k}={v:.3g}" for k, v in report.items()), flush=True)
         if step % args.save_every == 0 or step == args.steps:
             state = {
                 "step": step,

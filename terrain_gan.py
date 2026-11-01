@@ -170,6 +170,70 @@ class Generator(nn.Module):
         return self.out(x)
 
 
+class Refiner(nn.Module):
+    """Coarse height field + noise -> height field at 4x the resolution.
+
+    The network only adds detail on top of the upsampled coarse input. Like the
+    Generator it has no padding, so neighbouring tiles agree. n coarse samples
+    give 4n - 34 output pixels; coarse pixel i covers output pixels 4i .. 4i + 3.
+    """
+
+    stride = 4  # output pixels per coarse pixel
+    # Centre of the first output sample relative to 4 * first coarse pixel: 2 (coarse
+    # pixel centre) + 8 (two unpadded coarse filters) + 5 + 2.5 (the two stages) = 17.5.
+    origin = 17
+
+    def __init__(self, latent_ch=16, channels=(128, 96, 48)):
+        super().__init__()
+        self.config = dict(latent_ch=latent_ch, channels=tuple(channels))
+        self.latent_ch = latent_ch
+        self.head = nn.ModuleList(
+            [nn.Conv2d(1 + latent_ch, channels[0], 3), nn.Conv2d(channels[0], channels[0], 3)]
+        )
+        self.blur = Blur()
+        self.convs, self.injections = nn.ModuleList(), nn.ModuleList()
+        prev = channels[0]
+        for ch in channels[1:]:
+            self.convs.append(nn.ModuleList([nn.Conv2d(prev, ch, 3), nn.Conv2d(ch, ch, 3)]))
+            self.injections.append(nn.ModuleList([NoiseInjection(ch), NoiseInjection(ch)]))
+            prev = ch
+        self.out = nn.Conv2d(prev, 1, 1)
+        nn.init.zeros_(self.out.weight)
+        nn.init.zeros_(self.out.bias)
+
+    @staticmethod
+    def output_size(cells):
+        return 4 * cells - 34
+
+    @staticmethod
+    def cells_for(pixels):
+        cells = 9
+        while Refiner.output_size(cells) < pixels:
+            cells += 1
+        return cells
+
+    def upsampled(self, coarse):
+        """The coarse input on the output pixel grid; what the network adds detail to."""
+        x = coarse[:, :, 2:-2, 2:-2]
+        for _ in self.convs:
+            x = self.blur(F.interpolate(x, scale_factor=2, mode="nearest"))[:, :, 2:-2, 2:-2]
+        return x
+
+    def forward(self, coarse, latent, noise_fn):
+        x = torch.cat([coarse, latent], 1)
+        for conv in self.head:
+            x = F.leaky_relu(conv(x), 0.2)
+        layer, stride = 0, self.stride
+        for convs, injections in zip(self.convs, self.injections):
+            stride //= 2
+            x = self.blur(F.interpolate(x, scale_factor=2, mode="nearest"))
+            for conv, inject in zip(convs, injections):
+                x = conv(x)
+                x = F.leaky_relu(inject(x, noise_fn(layer, stride, x.shape[2], x.shape[3])), 0.2)
+                layer += 1
+        return self.upsampled(coarse) + self.out(x)
+
+
 class DiscBlock(nn.Module):
     def __init__(self, in_ch, out_ch):
         super().__init__()
@@ -184,22 +248,26 @@ class DiscBlock(nn.Module):
 
 
 class Discriminator(nn.Module):
-    def __init__(self, size, base=32, max_ch=256):
+    def __init__(self, size, base=32, max_ch=256, conditional=False):
         super().__init__()
         self.size = size
         blocks = int(math.log2(size)) - 2
-        self.from_input = nn.Conv2d(3, base, 1)
+        self.from_input = nn.Conv2d(5 if conditional else 3, base, 1)
         chs = [min(base * 2**i, max_ch) for i in range(blocks + 1)]
         self.blocks = nn.Sequential(*[DiscBlock(a, b) for a, b in zip(chs, chs[1:])])
         self.final = nn.Conv2d(chs[-1] + 1, chs[-1], 3, padding=1)
         self.linear = nn.Sequential(nn.Linear(chs[-1] * 16, chs[-1]), nn.LeakyReLU(0.2), nn.Linear(chs[-1], 1))
 
-    def forward(self, h):
+    def forward(self, h, condition=None):
         # Slopes are small in absolute value but carry the look of real terrain,
         # so the critic gets them as explicit input channels.
         gx = F.pad(h[:, :, :, 1:] - h[:, :, :, :-1], (0, 1, 0, 0))
         gy = F.pad(h[:, :, 1:, :] - h[:, :, :-1, :], (0, 0, 0, 1))
-        x = F.leaky_relu(self.from_input(torch.cat([h, gx * 10, gy * 10], 1)), 0.2)
+        channels = [h, gx * 10, gy * 10]
+        if condition is not None:
+            # The detail is small next to the height itself, so it gets its own channel.
+            channels += [condition, (h - condition) * 10]
+        x = F.leaky_relu(self.from_input(torch.cat(channels, 1)), 0.2)
         x = self.blocks(x)
         std = x.std(0, unbiased=False).mean().expand(x.shape[0], 1, *x.shape[2:])
         x = F.leaky_relu(self.final(torch.cat([x, std], 1)), 0.2)
@@ -245,6 +313,55 @@ def render(gen, seed, x0, y0, width, height, device, chunk=512):
     return out[top : top + height, left : left + width]
 
 
+@torch.no_grad()
+def render_refined(refiner, level, seed, x0, y0, width, height, device, coarse_fn, chunk=512):
+    """Like render, for a Refiner. coarse_fn(x, y, w, h) gives the level above as an array."""
+    if width > chunk or height > chunk:
+        rows = []
+        for y in range(y0, y0 + height, chunk):
+            h = min(chunk, y0 + height - y)
+            row = [
+                render_refined(refiner, level, seed, x, y, min(chunk, x0 + width - x), h, device, coarse_fn, chunk)
+                for x in range(x0, x0 + width, chunk)
+            ]
+            rows.append(np.concatenate(row, axis=1))
+        return np.concatenate(rows, axis=0)
+
+    ix0 = (x0 - refiner.origin) // refiner.stride
+    iy0 = (y0 - refiner.origin) // refiner.stride
+    nx = refiner.cells_for(x0 + width - (ix0 * refiner.stride + refiner.origin))
+    ny = refiner.cells_for(y0 + height - (iy0 * refiner.stride + refiner.origin))
+    coarse = torch.from_numpy(coarse_fn(ix0, iy0, nx, ny).copy())[None, None].to(device)
+    xs, ys = np.arange(ix0, ix0 + nx), np.arange(iy0, iy0 + ny)
+    latent = torch.from_numpy(world_randn(seed, 200 + level, refiner.latent_ch, xs, ys))[None].to(device)
+
+    def noise_fn(layer, stride, h, w):
+        nxs = ix0 * refiner.stride // stride + np.arange(w)
+        nys = iy0 * refiner.stride // stride + np.arange(h)
+        return torch.from_numpy(world_randn(seed, 1000 * level + layer, 1, nxs, nys))[None].to(device)
+
+    out = refiner(coarse, latent, noise_fn)[0, 0].cpu().numpy()
+    left = x0 - (ix0 * refiner.stride + refiner.origin)
+    top = y0 - (iy0 * refiner.stride + refiner.origin)
+    return out[top : top + height, left : left + width]
+
+
+class Cascade:
+    """A Generator followed by Refiners; level 0 is the coarsest."""
+
+    def __init__(self, models, px_per_degree):
+        self.models, self.px_per_degree = models, px_per_degree  # finest level
+
+    def render(self, level, seed, x0, y0, width, height, device):
+        if level == 0:
+            return render(self.models[0], seed, x0, y0, width, height, device)
+
+        def coarse_fn(x, y, w, h):
+            return self.render(level - 1, seed, x, y, w, h, device)
+
+        return render_refined(self.models[level], level, seed, x0, y0, width, height, device, coarse_fn)
+
+
 # Elevation colour ramp: metres -> RGB.
 _RAMP_M = np.array([-11000, -6000, -3000, -200, 0, 1, 100, 400, 1000, 2000, 3500, 5500, 9000], dtype=np.float32)
 _RAMP_RGB = np.array(
@@ -257,9 +374,12 @@ _RAMP_RGB = np.array(
 )  # fmt: skip
 
 
-def relief_image(meters, km_per_px=0.926, exaggeration=8.0):
+def relief_image(meters, km_per_px=0.926, exaggeration=None):
     """Coloured, hill-shaded RGB uint8 image of a height field in metres."""
     meters = np.asarray(meters, dtype=np.float32)
+    if exaggeration is None:
+        # Slopes flatten as pixels get larger, so shade coarse maps more strongly.
+        exaggeration = 8.0 * math.sqrt(max(km_per_px / 0.926, 1.0))
     rgb = np.stack([np.interp(meters, _RAMP_M, _RAMP_RGB[:, c]) for c in range(3)], axis=-1)
     dy, dx = np.gradient(meters * exaggeration, km_per_px * 1000.0)
     normal = np.stack([-dx, dy, np.ones_like(dx)], axis=-1)
@@ -268,6 +388,12 @@ def relief_image(meters, km_per_px=0.926, exaggeration=8.0):
     shade = np.clip((normal * light).sum(-1), 0.0, 1.0)
     shade = np.where(meters <= 0, 0.5 + 0.5 * shade, 0.25 + 1.05 * shade)
     return np.clip(rgb * shade[..., None], 0, 255).astype(np.uint8)
+
+
+def terrain_stats(meters, km_per_px):
+    """Per-tile land fraction, height spread (m) and roughness (slope in m/km), for (N, H, W) input."""
+    slope = np.abs(np.diff(meters, axis=2)).mean((1, 2)) / km_per_px
+    return {"land": (meters > 0).mean((1, 2)), "height_std": meters.std((1, 2)), "roughness": slope}
 
 
 def save_image_grid(images, path, columns):
