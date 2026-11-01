@@ -30,31 +30,78 @@ very large crops, and so more memory than the 4 GB available here.
 
 Our contributions are modest and practical:
 
-1. A rendering scheme giving exact tile agreement across a multi-level GAN cascade.
+1. An application of known position-based, padding-free generation (section 2) to a
+   multi-level cascade on real elevation data, with tile agreement measured through
+   all levels.
 2. A cascade small enough for a GTX 1650, with a browsable map that can compare
    against the ground truth at each zoom.
 3. A record of what failed, including one failure that a single metric hid.
 
 ## 2. Related work
 
-Spatial GAN (Jetchev et al., 2016) and PSGAN (Bergmann et al., 2017) showed that
-fully convolutional generators fed with spatial noise can make textures of arbitrary
-size. ALIS (Skorokhodov et al., 2021) and InfinityGAN (Lin et al., 2022) extend the
-idea to unbounded natural scenes. Our level-0 generator follows this family, and is
-closest in spirit to a position-keyed spatial GAN.
+**Unbounded generation.** Spatial GAN (Jetchev et al., 2016) replaced the single input
+vector with a spatial tensor of independent noise and a purely convolutional generator,
+so that a network trained on small patches can generate much larger images. Its authors
+show that this gives a stationary, mixing process: statistics do not depend on position,
+and patches further apart than the generator's projective field are independent. They
+frame this as texture synthesis, and it is the property we believe limits a single-scale
+model (section 7). PSGAN (Bergmann et al., 2017) adds global and periodic noise
+dimensions to the same structure, and shows a texture manifold can be learned from
+datasets with several images.
 
-GANs have been applied to terrain before, for example by Beckham and Pal (2017), and
-in conditional sketch-to-terrain authoring by Guérin et al. (2017). Our refiners are
-conditional GANs in the sense of pix2pix (Isola et al., 2017) and act like the
-super-resolution GANs of Ledig et al. (2017). The cascade structure resembles
-progressive growing (Karras et al., 2018), though our levels are trained separately
-and remain separate at inference, and cascaded diffusion models (Ho et al., 2022).
+Scenes are harder than textures. ALIS (Skorokhodov et al., 2021) names global consistency
+as the critical challenge: frames that form one scene must share information. Its
+generator interpolates style codes between anchors placed on a coordinate grid and is
+equivariant to shifts by construction, with pixel values equal at equal coordinates up to
+numerical precision. InfinityGAN (Lin et al., 2022) separates global appearance, local
+structure and texture, using a neural implicit function followed by a padding-free
+StyleGAN2. It removes padding partly because padding patterns that are consistent during
+training mislead the generator at other sizes.
+
+Our exact tile agreement is therefore not new: padding-free generation and shift
+equivariance come from this line of work. Our smooth level-0 field resembles ALIS's
+interpolated anchors in the role it plays, but is far simpler, with concatenation
+instead of style modulation. What differs is how we get large-scale structure: from a
+cascade over separately trained levels, instead of one generator that shares codes over
+a large area. ALIS and InfinityGAN report FID-based results on photographs, and we have not
+compared ours against them.
+
+**GANs for terrain.** Beckham and Pal (2017) generate 512 px heightmaps at about 1 km per
+pixel from NASA Visible Earth data with a DCGAN, then textures with pix2pix. This is the
+closest data setting to ours. It has fixed output size, and the authors report training
+stability problems, small-scale artefacts that they hide with a slight blur, and problems
+they ascribe to training the two networks separately, which they name as the next thing to
+fix. Guérin et al. (2017) train conditional GANs to author terrain from sketches of ridges,
+rivers and altitude cues, using 35 one-degree SRTM patches at about 30 m. They extract
+sketches automatically from real terrain, and train another conditional GAN to imitate
+hydraulic erosion simulation at low cost. Their aim is user control and not endless worlds,
+yet their explicit ridge and river inputs address what our model lacks. They also note that
+a synthesiser's scale is bound by its training data's scale, which we see as well.
+
+**Conditional refinement.** Our refiners follow the conditional GAN setup of pix2pix (Isola
+et al., 2017), which pairs an adversarial loss with L1 to the ground truth, and uses a
+patch discriminator that acts as a texture loss. Two differences matter. Our consistency
+term compares only block means to the coarse input, so it leaves fine detail free, and we
+do not compare to ground truth. Also, pix2pix reports its generator ignoring Gaussian input
+noise, so this is a risk for us that we have not yet measured. SRGAN (Ledig et al., 2017)
+argues that pixel-wise losses and PSNR miss perceptual quality at 4× upscaling, the same
+factor we use. Our roughness experience is a related warning about simple measures.
+
+**Cascades.** Cascaded diffusion models (Ho et al., 2022) use separately trained base and
+super-resolution models, the same structure as ours though not with GANs. They find
+*conditioning augmentation*, augmenting the low-resolution input during training, crucial
+for preventing compounding error in the cascade. Gaussian noise worked best at low
+resolutions, and Gaussian blur at high ones. Progressive growing (Karras et al., 2018)
+also goes from coarse to fine, but trains one model by adding layers, and is not a cascade
+at inference.
 
 ## 3. Data
 
-We use the "bedrock" variant of ETOPO 2022 (NOAA NCEI, 2022) at 30 arc-seconds:
-43,200 × 21,600 samples of land and sea-floor height. Ice sheets are absent from this
-variant. Note that this is a compiled global model, not raw SRTM data.
+We use the "bed" variant of ETOPO 2022 (NOAA NCEI, 2022) at 30 arc-seconds: 43,200 ×
+21,600 samples of land and sea-floor height in metres, in WGS84 coordinates, relative to the
+EGM2008 geoid. It holds bedrock under the Greenland and Antarctic ice sheets and normal
+ground surface everywhere else. The 30-arc-second grid was downsampled by NOAA from
+its 15-arc-second tiles. This is a compiled global model, not raw SRTM data.
 
 **Levels.** Block means with factors 16, 4 and 1 give about 14.8, 3.7 and 0.93 km
 per pixel at the equator. A 128 px crop covers about 1,900, 475 and 120 km.
@@ -64,7 +111,8 @@ is near sea level, so training uses
 
     x = asinh(h / 300 m) / asinh(9000 / 300)
 
-This keeps sea level at zero and gives lowlands more of the range.
+This keeps the geoid, which the data guide calls an adequate approximation of mean sea
+level for most purposes, at zero and gives lowlands more of the range.
 
 **Sampling.** Crop latitude is drawn uniformly in area within ±72°. The map projection
 narrows ground distance per pixel towards the poles, so each crop reads about
@@ -133,11 +181,16 @@ minibatch standard deviation. Its input is height plus forward differences in x 
 multiplied by 10, because slopes carry much of terrain's appearance. Refiner
 discriminators also see the upsampled condition and (output − condition) × 10.
 
-We use the non-saturating logistic GAN loss with a lazy R1 penalty (Mescheder et al.,
-2018), applied every 8 steps. Refiners add a consistency term: the L1 distance, weight
+We use the non-saturating logistic GAN loss with a lazy R1 penalty, applied every 8
+steps. R1 is the zero-centred gradient penalty on real data, (γ/2)·E‖∇D(x)‖², for which
+Mescheder et al. (2018) prove local convergence under suitable assumptions, and which they
+motivate as penalising the discriminator for leaving equilibrium. We take the gradient with
+respect to height, and since the discriminator's input channels scale slopes by 10, the same
+γ likely penalises it harder than in an unscaled network. Refiners add a consistency term: the L1 distance, weight
 10, between the output's block means and the coarse input, computed in metres and then
 transformed, exactly as the coarse data is made. Gaussian noise (σ = 0.01) on the coarse
-input during training aims to tolerate imperfect generated input.
+input during training aims to tolerate imperfect generated input. This is a weak, fixed
+form of the conditioning augmentation of Ho et al. (2022), who search over its strength.
 
 ### 4.6 Training
 
@@ -168,7 +221,11 @@ was also close to the chance level of 1.39, though the difference was obvious by
 We removed pixel normalisation from the refiner and lowered R1 to 1. By 2,000 steps the
 artefacts were gone. Pixel normalisation can inflate weak activations, which would
 produce such isolated structures, but because two changes were made at once this cause
-is an unproven hypothesis. The level-0 generator keeps both original settings and shows
+is an unproven hypothesis. It also sits awkwardly with the source of the technique: Karras et
+al. (2018) introduced it to stop signal magnitudes escalating, and found that it did not harm
+their generator and rarely changed results. Their generators were not conditional refiners
+with a residual output, so the two findings need not conflict, but the strong R1 could
+equally be the real cause. Only a separate test of each change can tell. The level-0 generator keeps both original settings and shows
 faint ring shapes that may be related.
 
 ![Worm-like artefacts in the pixel-normalised refiner at step 6,000](docs/figures/pixelnorm_artefact.png)
@@ -273,22 +330,41 @@ On the GTX 1650, most 256 px map tiles took about 0.05 s, and the most zoomed-ou
 
 ## 7. Discussion
 
-**Why the cascade helps.** Variety at continental scale comes from level 0, which sees
-1,900 km crops, whereas the single-scale model never saw more than 120 km. This fits with
-the visual results, but no converged single-scale baseline was trained.
+**Why a single scale looks homogeneous.** Our generators match the Spatial GAN setting:
+convolutional, with identically distributed position-keyed inputs. Jetchev et al. (2016) show
+such a process is stationary and mixing, and this predicts what we saw: the same statistics
+everywhere, with nothing linking regions beyond the generator's reach. Stationarity does not
+come from a lack of training, so it would not go away with more. This argument strengthens the
+case that the fault was structural, although we did not train a converged baseline to test it.
 
-**Why rivers are missing.** Rivers and ridges are organised over long distances. Each
-refiner sees only about 10 coarse pixels, and level 0 has too little resolution, so no level
-is well placed to create them. Explaining this properly would need a dedicated experiment.
-Longer receptive fields or a learned or simulated flow step are natural next steps.
+**Why the cascade helps, and its limit.** The cascade does not remove stationarity, and only
+moves its scale. Level 0 sees 1,900 km crops, so tile variety appears at a scale the viewer
+notices, whereas the single-scale model saw only 120 km. Beyond the reach of level 0, about
+1,400 km plus its 128 px smooth field, generated worlds should have no structure, such as
+supercontinents or planet-wide tectonic patterns. We have not measured this. ALIS and InfinityGAN address global consistency directly, and adding
+slower latent fields to level 0 is an obvious simple alternative.
 
-**Conditioning gap.** Refiners only ever saw real coarse maps during training. Noise
-augmentation is a weak substitute for generated input. Training later levels on the output
-of earlier levels might narrow this gap.
+**Why rivers are missing.** Rivers and ridges are organised over long distances. Each refiner
+sees only about 10 coarse pixels, and level 0 has too little resolution, so no level is well
+placed to create them. Under the patch-discriminator view of Isola et al. (2017), a limited
+reach models terrain as a Markov random field, a texture model, and this fits with what we see.
+Guérin et al. (2017) show a practical alternative: make rivers and ridges explicit conditional
+inputs. Their learned erosion simulation suggests a post-process that could be slotted into a
+cascade too. Neither has been tried here.
+
+**Conditioning gap.** Refiners only ever saw real coarse maps during training, and quality
+visibly drops on generated input. This is the compounding error that Ho et al. (2022) identify
+in cascades. Our noise of σ = 0.01 is small, and was not searched. Their finding that blur works
+better at high resolutions suggests it for level 2, although it comes from diffusion models
+on photographs. Beckham and Pal (2017) instead propose joint training for the same symptom.
 
 ## 8. Limitations of this evaluation
 
-- No FID or other standard score, and no human perceptual study.
+- No FID or other standard score, and no human perceptual study. InfinityGAN and ALIS report
+  FID variants (ScaleInv FID, ∞-FID) and InfinityGAN a user study too, so our results cannot be
+  compared with theirs. FID's Inception features were trained on photographs and so may suit
+  heightmaps poorly. The multi-scale sliced Wasserstein distance of Karras et al. (2018),
+  computed directly on image patches, looks better suited.
 - No controlled ablation. Several changes were made together, and causes are hypotheses.
 - One training run per configuration, and all visual checks by the authors.
 - Variety statistics describe tile-level summaries, not terrain structure, and the
@@ -302,12 +378,17 @@ A cascade of three small unpadded GANs with position-keyed randomness can genera
 endless, exactly seamless world spanning continents to about 1 km per pixel, within 4 GB
 of GPU memory and about 8 hours of training time. The cascade addressed the homogeneity of a
 single-scale model. Producing organised long-distance features such as river networks is
-the main open problem. Images alone caught a failure that our roughness metric missed, so
-metrics and visual checks should be used together.
+the main open problem, and theory on stationary generators suggests it will need a structural
+change and not more training. Images alone caught a failure that our roughness metric missed, so
+metrics and visual checks should be used together. Open questions are listed in
+[TODO.md](TODO.md).
 
 ## References
 
-These citations were written from memory and should be checked before any formal use.
+Titles and first authors were checked against arXiv, Crossref or the papers. All were read in
+part for this report (abstracts and relevant sections, not cover to cover). Venues were also
+checked, except Ho et al.'s journal. Beckham and Pal, and Jetchev et al., are workshop papers
+cited through arXiv.
 
 - Beckham, C., Pal, C. (2017). A step towards procedural terrain generation with GANs. arXiv:1707.03383.
 - Bergmann, U., Jetchev, N., Vollgraf, R. (2017). Learning texture manifolds with the Periodic Spatial GAN. ICML.
@@ -319,5 +400,5 @@ These citations were written from memory and should be checked before any formal
 - Ledig, C., et al. (2017). Photo-realistic single image super-resolution using a generative adversarial network. CVPR.
 - Lin, C. H., et al. (2022). InfinityGAN: Towards infinite-pixel image synthesis. ICLR.
 - Mescheder, L., Geiger, A., Nowozin, S. (2018). Which training methods for GANs do actually converge? ICML.
-- NOAA National Centers for Environmental Information (2022). ETOPO 2022 15 Arc-Second Global Relief Model. doi:10.25921/fd45-gt74.
+- NOAA National Centers for Environmental Information (2022). ETOPO 2022 15 Arc-Second Global Relief Model. doi:10.25921/fd45-gt74. Accessed 1 November 2026.
 - Skorokhodov, I., Sotnikov, G., Elhoseiny, M. (2021). Aligning latent and image spaces to connect the unconnectable. ICCV.

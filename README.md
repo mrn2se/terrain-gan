@@ -7,7 +7,7 @@ of the world can be rendered on its own, and tiles match without blending.
 
 ![Generated island about 950 km across, rendered through all three levels](docs/figures/island_all_levels.png)
 
-The method and results are written up in [PAPER.md](PAPER.md).
+The method and results are written up in [PAPER.md](PAPER.md), and open questions are in [TODO.md](TODO.md).
 
 ## Setup
 
@@ -21,7 +21,7 @@ uv run test_seamless.py   # optional: checks tile alignment and seamlessness
 
 The trained models are in `models/`, so generating terrain needs no training
 data. Training and the real-Earth map mode need
-`ETOPO_2022_v1_30s_N90W180_bed.tif` in the project folder. It is not in git.
+`data/ETOPO_2022_v1_30s_N90W180_bed.tif`. The `data/` folder is not in git.
 
 ## Generate a tile
 
@@ -137,7 +137,7 @@ It only handles a level-0 generator. Refiners are not supported.
 | `models/` | Trained models |
 | `docs/figures/` | Images used by the documentation |
 
-`runs/`, `cache/` and the TIFF files are ignored by git.
+`runs/`, `cache/` and `data/` are ignored by git.
 
 ## Limitations
 

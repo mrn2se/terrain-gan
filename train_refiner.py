@@ -79,7 +79,7 @@ def norm_block_mean(h, stride):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--data", default="ETOPO_2022_v1_30s_N90W180_bed.tif")
+    p.add_argument("--data", default="data/ETOPO_2022_v1_30s_N90W180_bed.tif")
     p.add_argument("--downsample", type=int, default=4, help="block-average the target data by this factor")
     p.add_argument("--parent", nargs="+", required=True, help="checkpoints of the levels above, for previews")
     p.add_argument("--out", default="runs/regional")

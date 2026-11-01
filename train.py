@@ -149,7 +149,7 @@ def save_samples(ema, reals, step, out_dir, km_per_px, size, device):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--data", default="ETOPO_2022_v1_30s_N90W180_bed.tif")
+    p.add_argument("--data", default="data/ETOPO_2022_v1_30s_N90W180_bed.tif")
     p.add_argument("--out", default="runs/default")
     p.add_argument("--cache-dir", default="cache")
     p.add_argument("--downsample", type=int, default=1, help="block-average the data by this factor")

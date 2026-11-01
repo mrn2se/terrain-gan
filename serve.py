@@ -163,7 +163,7 @@ class TileRenderer:
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--ckpt", nargs="+", default=["runs/world/latest.pt"], help="world generator, then any refiners")
-    p.add_argument("--data", default="ETOPO_2022_v1_30s_N90W180_bed.tif", help="source of the seed -1 ground truth")
+    p.add_argument("--data", default="data/ETOPO_2022_v1_30s_N90W180_bed.tif", help="source of the seed -1 ground truth")
     p.add_argument("--cache-dir", default="cache")
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=8000)

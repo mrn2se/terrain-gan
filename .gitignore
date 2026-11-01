@@ -1,6 +1,7 @@
 .venv/
 __pycache__/
-*.tif
+data/
+literature/
 cache/
 runs/
 .claude/
