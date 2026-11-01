@@ -2,6 +2,7 @@
 
 Usage: uv run serve.py [--ckpt runs/world/latest.pt runs/regional/latest.pt] [--port 8000] [--device cpu]
 Checkpoints are reloaded when they change, so this can run alongside training.
+World seed -1 shows the real elevation data instead of the GAN.
 """
 
 import argparse
@@ -18,9 +19,11 @@ from PIL import Image
 
 from generate import load_cascade
 from terrain_gan import norm_to_meters, relief_image
+from train import cache_downsampled, cache_raster
 
 TILE = 256
 LEVEL_SCALE = 4  # resolution ratio between cascade levels
+GROUND_TRUTH_SEED = -1
 
 PAGE = """<!DOCTYPE html>
 <html>
@@ -39,7 +42,7 @@ PAGE = """<!DOCTYPE html>
 <body>
 <div id="map"></div>
 <div id="panel">
-  <label>World seed <input id="seed" type="number" min="0" step="1"></label>
+  <label>World seed (-1 = real Earth) <input id="seed" type="number" min="-1" step="1"></label>
   <div id="pos">&nbsp;</div>
 </div>
 <script>
@@ -82,9 +85,37 @@ map.on('pointermove', (e) => {
 """
 
 
+class GroundTruth:
+    """Real elevation at the same pixel grids as the cascade levels."""
+
+    def __init__(self, tif, cache_dir):
+        self.tif, self.cache_dir = tif, cache_dir
+        self.rasters = {}
+
+    def raster(self, px_per_degree):
+        if px_per_degree not in self.rasters:
+            npy, source_ppd = cache_raster(self.tif, self.cache_dir)
+            factor = round(source_ppd / px_per_degree)
+            if factor > 1:
+                npy = cache_downsampled(npy, factor)
+            self.rasters[px_per_degree] = np.load(npy, mmap_mode="r")
+        return self.rasters[px_per_degree]
+
+    def read(self, px_per_degree, x0, y0, width, height):
+        """Metres for world pixels, where world x = lon * ppd and y = -lat * ppd. NaN past the poles."""
+        data = self.raster(px_per_degree)
+        rows, cols = data.shape
+        row = np.arange(y0, y0 + height) + rows // 2
+        col = (np.arange(x0, x0 + width) + cols // 2) % cols
+        out = np.full((height, width), np.nan, dtype=np.float32)
+        inside = (row >= 0) & (row < rows)
+        out[inside] = data[np.ix_(row[inside], col)]
+        return out
+
+
 class TileRenderer:
-    def __init__(self, ckpts, device):
-        self.ckpts, self.device = ckpts, device
+    def __init__(self, ckpts, device, ground_truth):
+        self.ckpts, self.device, self.ground_truth = ckpts, device, ground_truth
         self.lock = threading.Lock()
         self.mtime = None
         self.reload()
@@ -112,12 +143,18 @@ class TileRenderer:
         # One extra output pixel per side so hill shading is continuous across tiles.
         x0, y0 = (x * TILE - 1) * factor, (y * TILE - 1) * factor
         side = (TILE + 2) * factor
-        with self.lock:
-            norm = self.cascade.render(level, seed, x0, y0, side, side, self.device)
-        meters = norm_to_meters(norm)
+        if seed == GROUND_TRUTH_SEED:
+            meters = self.ground_truth.read(self.ppd / scale, x0, y0, side, side)
+        else:
+            with self.lock:
+                norm = self.cascade.render(level, seed, x0, y0, side, side, self.device)
+            meters = norm_to_meters(norm)
         if factor > 1:
             meters = meters.reshape(TILE + 2, factor, TILE + 2, factor).mean((1, 3))
-        rgb = relief_image(meters, 111.32 / self.ppd * resolution)[1:-1, 1:-1]
+        valid = np.isfinite(meters)
+        rgb = relief_image(np.where(valid, meters, 0.0), 111.32 / self.ppd * resolution)[1:-1, 1:-1]
+        if not valid.all():  # beyond the poles of the real data
+            rgb = np.dstack([rgb, 255 * valid[1:-1, 1:-1].astype(np.uint8)])
         out = io.BytesIO()
         Image.fromarray(rgb).save(out, "PNG", compress_level=1)
         return out.getvalue()
@@ -126,13 +163,15 @@ class TileRenderer:
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--ckpt", nargs="+", default=["runs/world/latest.pt"], help="world generator, then any refiners")
+    p.add_argument("--data", default="ETOPO_2022_v1_30s_N90W180_bed.tif", help="source of the seed -1 ground truth")
+    p.add_argument("--cache-dir", default="cache")
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=8000)
     p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     args = p.parse_args()
 
-    renderer = TileRenderer(args.ckpt, args.device)
-    tile_path = re.compile(r"^/tile/(\d+)/(\d+)/(-?\d+)/(-?\d+)\.png$")
+    renderer = TileRenderer(args.ckpt, args.device, GroundTruth(args.data, args.cache_dir))
+    tile_path = re.compile(r"^/tile/(-?\d+)/(\d+)/(-?\d+)/(-?\d+)\.png$")
 
     class Handler(BaseHTTPRequestHandler):
         def respond(self, body, content_type):
@@ -156,6 +195,9 @@ def main():
             with renderer.lock:
                 version = renderer.reload()
             seed, z, x, y = (int(v) for v in match.groups())
+            if seed < GROUND_TRUTH_SEED:
+                self.send_error(404)
+                return
             self.respond(renderer.tile(seed, z, x, y, version), "image/png")
 
         def log_message(self, *_):

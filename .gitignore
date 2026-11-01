@@ -3,3 +3,4 @@ __pycache__/
 *.tif
 cache/
 runs/
+.claude/
