@@ -8,7 +8,11 @@ on:
     paths:
       - "web/index.html"
       - "web/js/**"
-      - "web/models/**"
+      - "web/export_models.py"
+      - "web/test/**"
+      - "models/**"
+      - "terrain_gan.py"
+      - "generate.py"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -29,6 +33,15 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}preview/
     steps:
       - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Convert the models for the browser
+        run: >
+          uv run --no-project --python 3.12
+          --index https://download.pytorch.org/whl/cpu
+          --with torch==2.14.1 --with numpy --with pillow --with onnx --with onnxscript
+          python web/export_models.py --ckpt models/world.pt models/regional.pt models/local.pt
+      - name: Check the page against PyTorch
+        run: uv run --no-project --python 3.12 --with playwright python web/test/run_test.py
       - name: Collect the page
         run: |
           mkdir -p _site/preview

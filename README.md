@@ -75,8 +75,8 @@ on this computer. Ctrl+C stops all three.
 ## Browser version
 
 `web/` is a static page that runs the models in the browser with no server code, ready for GitHub
-Pages. It has no real-Earth mode, since the data is too large to ship with it. If models change,
-export them again. See [web/README.md](web/README.md).
+Pages. It has no real-Earth mode, since the data is too large to ship with it. Its models are not in
+git, so export them first. See [web/README.md](web/README.md).
 
 ## The three levels
 

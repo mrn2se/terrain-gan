@@ -10,9 +10,11 @@ Test it locally (it needs a web server, not `file://`):
 
 `./serve_all.sh` in the repository root runs it alongside the map server and TensorBoard.
 
-## Update the models
+## Create the models
 
-From the repository root, listing the world model first and then each refiner:
+The page's models and test data are generated from `models/` and are not in git, so export them
+once after cloning and again whenever the models change. From the repository root, listing the
+world model first and then each refiner:
 
     uv run --with onnx --with onnxscript python web/export_models.py --ckpt models/world.pt models/regional.pt models/local.pt
 
@@ -25,8 +27,9 @@ sub-path like GitHub Pages does:
 
 ## Publish on GitHub Pages
 
-`.github/workflows/pages.yml` publishes the page, its scripts and the models when they change
-on `master`. They appear in the `preview/` subdirectory, the site root stays empty and search
+`.github/workflows/pages.yml` runs when the page or the models change on `master`. It exports the
+models, checks the page against PyTorch and publishes the page, scripts and exported models. They
+appear in the `preview/` subdirectory, the site root stays empty and search
 engines are asked not to index the page. This does not protect it: even from a private
 repository, a GitHub Pages site can be opened by anyone with the link.
 
