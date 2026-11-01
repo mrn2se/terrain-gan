@@ -25,8 +25,10 @@ sub-path like GitHub Pages does:
 
 ## Publish on GitHub Pages
 
-Everything the page needs is in `web/`. In the repository settings under Pages, deploy
-`web/` with a GitHub Actions workflow, or copy its contents to the branch Pages serves.
+`.github/workflows/pages.yml` publishes the page, its scripts and the models when they change
+on `master`. They appear in the `preview/` subdirectory, the site root stays empty and search
+engines are asked not to index the page. This does not protect it: even from a private
+repository, a GitHub Pages site can be opened by anyone with the link.
 
 ## Options
 

@@ -1,0 +1,44 @@
+# Publishes only the browser version, at <pages url>/preview/. The site root stays empty, and
+# search engines are asked not to index the page. Anyone with the link can still open it.
+name: Publish browser version
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "web/index.html"
+      - "web/js/**"
+      - "web/models/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}preview/
+    steps:
+      - uses: actions/checkout@v4
+      - name: Collect the page
+        run: |
+          mkdir -p _site/preview
+          cp -r web/index.html web/js web/models _site/preview/
+          sed -i 's|<meta charset="utf-8">|<meta charset="utf-8">\n<meta name="robots" content="noindex">|' _site/preview/index.html
+          grep -q 'name="robots"' _site/preview/index.html
+          find _site -type f
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
