@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Endless Terrain GAN</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css">
+<script src="https://cdn.jsdelivr.net/npm/ol@10.6.1/dist/ol.js"></script>
+<style>
+  html, body, #map { margin: 0; height: 100%; background: #123; }
+  #panel { position: absolute; top: 8px; right: 8px; max-width: min(320px, calc(100vw - 72px)); z-index: 10;
+           padding: 8px 10px; background: #fffe; color: #123; font: 14px/1.4 system-ui, sans-serif; border-radius: 6px; }
+  #panel input { width: 6em; font: inherit; }
+  #panel small { display: block; color: #456; }
+  #status.error { color: #a00; font-weight: 600; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="panel">
+  <label>World seed <input id="seed" type="number" min="0" step="1"></label>
+  <div id="status">Loading models…</div>
+  <div id="pos">&nbsp;</div>
+  <small>Invented terrain, computed in your browser by a GAN trained on ETOPO 2022 elevation data (NOAA). The coordinates are not real places.</small>
+</div>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

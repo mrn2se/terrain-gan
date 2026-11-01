@@ -1,0 +1,23 @@
+{
+ "px_per_degree": 30.0,
+ "levels": [
+  {
+   "file": "models/level0.onnx",
+   "stride": 16,
+   "origin": 37,
+   "layers": 8,
+   "kind": "generator",
+   "fine_ch": 48,
+   "coarse_ch": 16,
+   "coarse_cells": 8
+  },
+  {
+   "file": "models/level1.onnx",
+   "stride": 4,
+   "origin": 17,
+   "layers": 4,
+   "kind": "refiner",
+   "latent_ch": 16
+  }
+ ]
+}
