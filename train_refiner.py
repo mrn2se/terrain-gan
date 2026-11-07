@@ -72,6 +72,24 @@ def sample(refiner, coarse, device):
     return refiner(coarse, latent, lambda _, __, h, w: torch.randn(coarse.shape[0], 1, h, w, device=device))
 
 
+def random_blur(x, max_sigma, rng):
+    """Each item blurred by a Gaussian of random width up to max_sigma pixels; edges replicate."""
+    out = []
+    for item in x:
+        sigma = float(rng.uniform(0, max_sigma))
+        if sigma < 0.05:
+            out.append(item)
+            continue
+        radius = max(1, math.ceil(3 * sigma))
+        t = torch.arange(-radius, radius + 1, dtype=x.dtype, device=x.device)
+        k = torch.exp(-0.5 * (t / sigma) ** 2)
+        k = k / k.sum()
+        y = F.pad(item[None], (radius,) * 4, mode="replicate")
+        y = F.conv2d(y, k.view(1, 1, 1, -1))
+        out.append(F.conv2d(y, k.view(1, 1, -1, 1))[0])
+    return torch.stack(out)
+
+
 def norm_block_mean(h, stride):
     """Block mean in metres, back in network units: exactly how the coarse data is made."""
     meters = torch.sinh(h * HEIGHT_NORM) * HEIGHT_SCALE_M
@@ -93,6 +111,8 @@ def main():
     p.add_argument("--r1-every", type=int, default=8)
     p.add_argument("--match", type=float, default=10.0, help="weight of staying true to the coarse input")
     p.add_argument("--coarse-noise", type=float, default=0.01, help="makes it tolerate imperfect generated input")
+    p.add_argument("--coarse-blur", type=float, default=0.0,
+                   help="largest Gaussian blur (coarse pixels) applied at random to the coarse input, as in Ho et al. (TODO C2)")
     p.add_argument("--ema", type=float, default=0.999)
     p.add_argument("--workers", type=int, default=6)
     p.add_argument("--log-every", type=int, default=100)
@@ -157,10 +177,13 @@ def main():
         coarse, fine = next(data_iter)
         coarse = coarse.to(device, non_blocking=True)
         fine = fine.to(device, non_blocking=True)
-        noisy = coarse + args.coarse_noise * torch.randn_like(coarse)
+        noise = args.coarse_noise * torch.randn_like(coarse)
+        # The consistency target keeps the unblurred block means; only the input is degraded.
+        target = coarse + noise
+        noisy = (random_blur(coarse, args.coarse_blur, rng) if args.coarse_blur > 0 else coarse) + noise
         # Random phase, the same for real and fake, hides the coarse lattice.
         dy, dx = (int(v) for v in rng.integers(0, stride, 2))
-        return noisy, fine, dy, dx
+        return noisy, target, fine, dy, dx
 
     def crop(x, dy, dx):
         return x[:, :, dy : dy + args.size, dx : dx + args.size]
@@ -171,7 +194,7 @@ def main():
     start, start_step = time.time(), step
     last_r1 = None
     while step < args.steps:
-        noisy, fine, dy, dx = next_batch()
+        noisy, target_coarse, fine, dy, dx = next_batch()
         condition = crop(refiner.upsampled(noisy), dy, dx)
         real = real_view(fine, dy, dx)
         with torch.no_grad():
@@ -195,7 +218,7 @@ def main():
         fake = crop(full, dy, dx)
         # Output pixel 3 is the first to start a whole coarse block (origin 17 + 3 = 20 = 4 * 5).
         blocks = norm_block_mean(full[:, :, 3:, 3:], stride)
-        target = noisy[:, :, 5 : 5 + blocks.shape[2], 5 : 5 + blocks.shape[3]]
+        target = target_coarse[:, :, 5 : 5 + blocks.shape[2], 5 : 5 + blocks.shape[3]]
         match_loss = (blocks - target).abs().mean()
         adv_loss = F.softplus(-disc(fake, condition)).mean()
         opt_g.zero_grad(set_to_none=True)
