@@ -26,6 +26,8 @@ of this list, as the paper and commits refer to them.
   real ones (median correlation 0.46 against 0.40), not enough to suggest collapse.
 - [x] **B2. Level 0 without pixel normalisation.** Less stable early on, and less bumpy, but rings and
   round landmasses remain. Kept on branch `world-no-pixelnorm`; `models/world.pt` stays.
+- [x] **B4. Converged single-scale baseline.** Trained to 20,000 steps at 0.93 km per pixel: tiles far more
+  alike than real, land and sea alternating every 100 km, grainy look. The cascade is clearly better.
 - [x] **C1. Gap between real and generated input.** On generated input, slopes come out near the real
   level (ratio 1.0), against 0.77 on real input: two errors cancel, as level 0 is too rough.
 - [x] **D4. Slower level-0 fields.** Mixed. 16 extra channels on a 512 px lattice bring the distance
@@ -46,8 +48,6 @@ Each is one short training run or less, with no new methods.
   with stronger input noise and level 2 with input blur, as in Ho et al. C1 shows that refiners now pass level 0's excess roughness through.
 - [ ] **B1. Separate the pixel normalisation and R1 changes** in a refiner, with two short runs.
 - [ ] **B3. Slope gain against R1.** A few short runs; record the discriminator's real and fake separation.
-- [ ] **B4. Converged single-scale baseline.** One training to 20,000 steps at 0.93 km per pixel, compared
-  through `measure.py`. Tests the paper's central claim directly.
 - [ ] **E2. Ocean-aware refiners.** Retrain one refiner with a higher ocean share, and compare sea floors.
 - [ ] **E4. 64 px crops at level 0.** Earth has only a few hundred independent 128 px crops.
 - [ ] **A9. Copying in refiners.** Extend `evaluate.py` beyond level 0, with more than 24 tiles.

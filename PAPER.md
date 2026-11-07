@@ -14,7 +14,9 @@ and the generators use no padding, so tiles rendered independently agree to abou
 homogeneous terrain, whereas the cascade matches real Earth's tile-to-tile spread in
 land fraction (0.36 vs. 0.36) and height variation (686 vs. 665 m). Generated terrain
 is plausible, but lacks long rivers and continuous ridges, and our evaluation is
-limited: there is no FID score, no user study and no controlled ablation.
+limited: there is no FID score and no user study. A converged single-scale model trained
+for comparison repeats one look everywhere, confirming that the cascade, not training
+length, removes the homogeneity.
 
 ## 1. Introduction
 
@@ -438,6 +440,42 @@ new model draws speckled shallow flats full of tiny islands and plateaus with sh
 and still some ring-shaped basins. We keep the current level 0 as the default. The refiners
 were not retrained for the new level 0.
 
+### 6.9 Converged single-scale baseline
+
+The cascade had only been compared with a single-scale model stopped at 7,300 steps. We trained the
+same level-0 generator directly at 0.93 km per pixel for 20,000 steps (`train.py --downsample 1`),
+like each cascade level, and compared it with the full cascade at the same scale. The discriminator
+gained the upper hand late in this run (loss 0.17 at the end), so it is not a perfectly healthy
+baseline, but its variety statistics improved steadily until then.
+
+| 0.93 km/px, 128 px tiles | Single scale | Cascade | Real |
+|---|---|---|---|
+| Slope ratio | 1.20 | 1.04 | 1 |
+| Slope distance (°) | 0.48 | 0.09 | 0 |
+| Height distance (m) | 787 | 386 | 0 |
+| Tile slope spread (°) | 1.76 | 2.14 | 2.05–2.22 |
+| Pair similarity, median | 0.62 | 0.45 | 0.40 |
+| RMS difference at 66 km (m) | 1,280 | 511 | 626 |
+| RMS difference at 191 km (m) | 2,090 | 901 | 992 |
+| Land in closed depressions | 15.5% | 9.9% | 5.3–6.0% |
+| Drainage area exponent | −0.57 | −0.62 | −0.56 to −0.57 |
+
+Real values differ slightly between the two runs, which drew different real crops. The distance
+row for the cascade comes from eight 1,024 px renders of level 2, like the single-scale one.
+
+![Single scale against cascade](docs/figures/single_vs_cascade.png)
+
+*Figure 11. About 950 × 475 km at 0.93 km per pixel, at places with 30–70% land. Left: single scale.
+Right: cascade.*
+
+The single-scale model repeats one look everywhere: tiles are far more alike than real ones
+(median 0.62 against 0.40), and its land and sea alternate every 100 km or so, where real terrain
+and the cascade change gradually over hundreds of kilometres. Visually it gives grainy uplands and
+round seas, while the cascade gives coasts, valley systems and lakes. Its one better number is the
+drainage area exponent, though with half again as much land in closed depressions as the cascade.
+This supports the central claim: the homogeneity was structural, and the cascade, not
+longer training, removes it at this scale.
+
 ## 7. Discussion
 
 **Why a single scale looks homogeneous.** Our generators match the Spatial GAN setting:
@@ -445,7 +483,7 @@ convolutional, with identically distributed position-keyed inputs. Jetchev et al
 such a process is stationary and mixing, and this predicts what we saw: the same statistics
 everywhere, with nothing linking regions beyond the generator's reach. Stationarity does not
 come from a lack of training, so it would not go away with more. This argument strengthens the
-case that the fault was structural, although we did not train a converged baseline to test it.
+case that the fault was structural, and the converged baseline of section 6.9 confirms it.
 
 **Why the cascade helps, and its limit.** The cascade does not remove stationarity, and only
 moves its scale. Level 0 sees 1,900 km crops, so tile variety appears at a scale the viewer
@@ -476,7 +514,8 @@ on photographs. Beckham and Pal (2017) instead propose joint training for the sa
   compared with theirs. FID's Inception features were trained on photographs and so may suit
   heightmaps poorly. The multi-scale sliced Wasserstein distance of Karras et al. (2018),
   computed directly on image patches, looks better suited.
-- No controlled ablation. Several changes were made together, and causes are hypotheses.
+- Few controlled ablations. Several changes were made together, and most causes are hypotheses;
+  sections 6.8 and 6.9 are the exceptions.
 - One training run per configuration, and all visual checks by the authors.
 - Section 6.7's statistics compare distributions, not structure, apart from the drainage
   check, which is limited by 118 km tiles. The memorisation check uses just 24 tiles and

@@ -380,7 +380,7 @@ def main():
             entry["generated"]["rms_vs_level_above_m"] = mismatch
             entry["noise_use"] = noise_use(cascade.models[level], coarse, methods["refined real"][0])
         plot(level, km_per_px, curves, out / f"stats_level{level}.png")
-        if level == levels - 1 and level > 0:
+        if level == levels - 1 and km_per_px < 2:  # drainage needs fine pixels
             hydro = {name: hydrology(tiles[: args.hydro_tiles]) for name, (tiles, _, _) in curves.items()}
             entry["hydrology"] = hydro
             plot_hydrology(hydro, km_per_px, out / "hydrology.png")
