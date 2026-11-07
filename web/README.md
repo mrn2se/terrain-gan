@@ -45,4 +45,5 @@ Safari on an iPhone closed the page after one or two tiles. Desktop tests could 
 this: Chrome's page process peaks near 400 MB on the CPU backend, with little change from smaller
 chunks. iPhones and iPads (also when they claim to be a Mac) therefore default to the CPU backend
 with 256 px chunks, on the guess that Safari's young WebGPU support or its lower memory limit per
-page is the cause. Add `backend=webgpu` to try the GPU there anyway.
+page is the cause. With this default the page works on an iPhone. Add `backend=webgpu` to try
+the GPU there anyway.
