@@ -6,14 +6,16 @@ export const ORT_BASE = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERS
 
 const HEIGHT_SCALE_M = 300;
 const HEIGHT_NORM = Math.asinh(9000 / HEIGHT_SCALE_M);
-const CHUNK = 512;
+// Largest piece rendered in one model run. Smaller pieces need less memory but repeat
+// more of the margin each piece needs; phones get a smaller one.
+export const DEFAULT_CHUNK = 512;
 
 export function toMeters(x) {
   return Math.sinh(x * HEIGHT_NORM) * HEIGHT_SCALE_M;
 }
 
 // Fetches the manifest and models. Tries each execution provider until one works.
-export async function loadTerrain(ort, providers) {
+export async function loadTerrain(ort, providers, chunk = DEFAULT_CHUNK) {
   const base = new URL("../", import.meta.url);
   const manifest = await (await fetch(new URL("models/manifest.json", base))).json();
   const buffers = await Promise.all(
@@ -26,7 +28,7 @@ export async function loadTerrain(ort, providers) {
       for (const buffer of buffers) {
         sessions.push(await ort.InferenceSession.create(buffer, { executionProviders: [provider] }));
       }
-      return new Terrain(ort, manifest, sessions, provider);
+      return new Terrain(ort, manifest, sessions, provider, chunk);
     } catch (error) {
       lastError = error;
     }
@@ -57,8 +59,9 @@ function noiseSizes(level, nx, ny) {
 }
 
 export class Terrain {
-  constructor(ort, manifest, sessions, provider) {
+  constructor(ort, manifest, sessions, provider, chunk) {
     this.ort = ort;
+    this.chunk = chunk;
     this.manifest = manifest;
     this.sessions = sessions;
     this.provider = provider;
@@ -66,11 +69,14 @@ export class Terrain {
 
   // Normalised heights (rows of width values) for one level's world pixels.
   async render(index, seed, x0, y0, width, height) {
-    if (width <= CHUNK && height <= CHUNK) return this.renderChunk(index, seed, x0, y0, width, height);
+    if (width <= this.chunk && height <= this.chunk) return this.renderChunk(index, seed, x0, y0, width, height);
+    // Equal pieces, so that a 516 px side becomes two of 258 rather than 512 and 4.
+    const pieceW = Math.ceil(width / Math.ceil(width / this.chunk));
+    const pieceH = Math.ceil(height / Math.ceil(height / this.chunk));
     const out = new Float32Array(width * height);
-    for (let y = 0; y < height; y += CHUNK) {
-      for (let x = 0; x < width; x += CHUNK) {
-        const w = Math.min(CHUNK, width - x), h = Math.min(CHUNK, height - y);
+    for (let y = 0; y < height; y += pieceH) {
+      for (let x = 0; x < width; x += pieceW) {
+        const w = Math.min(pieceW, width - x), h = Math.min(pieceH, height - y);
         const part = await this.renderChunk(index, seed, x0 + x, y0 + y, w, h);
         for (let r = 0; r < h; r++) out.set(part.subarray(r * w, (r + 1) * w), (y + r) * width + x);
       }

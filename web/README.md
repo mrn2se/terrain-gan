@@ -36,4 +36,13 @@ repository, a GitHub Pages site can be opened by anyone with the link.
 ## Options
 
 Add to the page URL: `seed`, `lon`, `lat`, `res` (finest-level pixels per screen pixel), and
-`backend=wasm` or `backend=webgpu` to force a backend.
+`backend=wasm` or `backend=webgpu` to force a backend, and `chunk` (default 512) for the largest
+piece of a level rendered at once.
+
+## iPhone and iPad
+
+Safari on an iPhone closed the page after one or two tiles. Desktop tests could not reproduce
+this: Chrome's page process peaks near 400 MB on the CPU backend, with little change from smaller
+chunks. iPhones and iPads (also when they claim to be a Mac) therefore default to the CPU backend
+with 256 px chunks, on the guess that Safari's young WebGPU support or its lower memory limit per
+page is the cause. Add `backend=webgpu` to try the GPU there anyway.

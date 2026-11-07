@@ -5,7 +5,8 @@ const seedInput = document.getElementById("seed");
 const status = document.getElementById("status");
 seedInput.value = params.get("seed") || "0";
 
-const worker = new Worker(new URL(`worker.js?backend=${params.get("backend") || ""}`, import.meta.url), { type: "module" });
+const workerParams = new URLSearchParams({ backend: params.get("backend") || "", chunk: params.get("chunk") || "" });
+const worker = new Worker(new URL(`worker.js?${workerParams}`, import.meta.url), { type: "module" });
 const pending = new Map();
 let nextId = 0;
 let info = null;

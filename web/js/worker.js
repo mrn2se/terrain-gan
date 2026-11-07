@@ -1,7 +1,7 @@
 // Renders tiles away from the page's main thread, newest request first, so that
 // tiles for the current view come before ones already scrolled past.
 import * as ort from "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/ort.webgpu.min.mjs";
-import { loadTerrain, ORT_BASE, reliefImage, toMeters } from "./terrain.js";
+import { DEFAULT_CHUNK, loadTerrain, ORT_BASE, reliefImage, toMeters } from "./terrain.js";
 
 const TILE = 256;
 const LEVEL_SCALE = 4; // resolution ratio between model levels
@@ -70,11 +70,17 @@ self.onmessage = async ({ data }) => {
 try {
   // ?backend=webgpu or ?backend=wasm on the page forces one. By default a real GPU is
   // used if there is one; software WebGPU is far slower than the CPU backend.
-  const forced = new URL(self.location.href).searchParams.get("backend");
+  const query = new URL(self.location.href).searchParams;
+  const forced = query.get("backend");
+  // Safari on iPhones and iPads (which may claim to be a Mac) closed the page after a
+  // tile or two; it has less memory per page, and its WebGPU is new. Default to the
+  // CPU backend and smaller pieces there; ?backend=webgpu still tries the GPU.
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+  const chunk = Number(query.get("chunk")) || (ios ? 256 : DEFAULT_CHUNK);
   const adapter = "gpu" in navigator ? await navigator.gpu.requestAdapter().catch(() => null) : null;
   gpuName = adapter?.info ? `${adapter.info.vendor} ${adapter.info.architecture} ${adapter.info.description}`.trim() : "";
-  const useGpu = adapter && !adapter.info?.isFallbackAdapter;
-  terrain = await loadTerrain(ort, forced ? [forced] : useGpu ? ["webgpu", "wasm"] : ["wasm"]);
+  const useGpu = adapter && !adapter.info?.isFallbackAdapter && !ios;
+  terrain = await loadTerrain(ort, forced ? [forced] : useGpu ? ["webgpu", "wasm"] : ["wasm"], chunk);
   const levels = terrain.manifest.levels.length;
   // Finest-level pixels per screen pixel, one entry per zoom level. The furthest zoom is
   // 2x the coarsest model, because further out costs too much to compute on a CPU.
