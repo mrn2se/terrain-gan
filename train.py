@@ -23,7 +23,6 @@ from terrain_gan import (
     terrain_stats,
     render,
     save_image_grid,
-    world_latents,
 )
 
 
@@ -104,15 +103,12 @@ def sample_fake(gen, batch, size, device, rng):
     """World-sampled latents, cropped at a random phase so the latent lattice is hidden."""
     cells = gen.cells_for(size + gen.stride)
     latents = [
-        world_latents(
+        gen.latents(
             int(rng.integers(1 << 62)),
             int(rng.integers(-(1 << 40), 1 << 40)),
             int(rng.integers(-(1 << 40), 1 << 40)),
             cells,
             cells,
-            gen.fine_ch,
-            gen.coarse_ch,
-            gen.coarse_cells,
         )
         for _ in range(batch)
     ]
@@ -165,6 +161,8 @@ def main():
     p.add_argument("--log-every", type=int, default=100)
     p.add_argument("--sample-every", type=int, default=2000)
     p.add_argument("--save-every", type=int, default=5000)
+    p.add_argument("--slow-ch", type=int, default=0, help="channels of an extra slower latent field (TODO D4)")
+    p.add_argument("--slow-cells", type=int, default=32, help="its lattice spacing in latent cells")
     p.add_argument("--resume", action="store_true", help="continue from <out>/latest.pt")
     args = p.parse_args()
 
@@ -189,7 +187,7 @@ def main():
     )
     real_iter = iter(loader)
 
-    gen = Generator().to(device)
+    gen = Generator(slow_ch=args.slow_ch, slow_cells=args.slow_cells).to(device)
     disc = Discriminator(args.size).to(device)
     ema = copy.deepcopy(gen).eval().requires_grad_(False)
     opt_g = torch.optim.Adam(gen.parameters(), lr=args.lr, betas=(0.0, 0.99))

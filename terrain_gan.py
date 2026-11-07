@@ -56,18 +56,15 @@ def world_randn(seed, tag, channels, xs, ys):
     return (np.sqrt(-2.0 * np.log(np.minimum(u1, 1.0))) * np.cos(2.0 * np.pi * u2)).astype(np.float32)
 
 
-def world_latents(seed, ix0, iy0, nx, ny, fine_ch, coarse_ch, coarse_cells):
-    """Latent grid: per-cell detail vectors plus a smooth large-scale field."""
-    xs, ys = np.arange(ix0, ix0 + nx), np.arange(iy0, iy0 + ny)
-    fine = world_randn(seed, 1, fine_ch, xs, ys)
-
-    cx = np.floor_divide(xs, coarse_cells)
-    cy = np.floor_divide(ys, coarse_cells)
+def _smooth_field(seed, tag, channels, cells, xs, ys):
+    """Unit-variance noise on a lattice every `cells` cells, smoothly interpolated."""
+    cx = np.floor_divide(xs, cells)
+    cy = np.floor_divide(ys, cells)
     lattice_x = np.arange(cx[0], cx[-1] + 2)
     lattice_y = np.arange(cy[0], cy[-1] + 2)
-    lattice = world_randn(seed, 2, coarse_ch, lattice_x, lattice_y)
-    tx = ((xs - cx * coarse_cells) / coarse_cells).astype(np.float32)[None, None, :]
-    ty = ((ys - cy * coarse_cells) / coarse_cells).astype(np.float32)[None, :, None]
+    lattice = world_randn(seed, tag, channels, lattice_x, lattice_y)
+    tx = ((xs - cx * cells) / cells).astype(np.float32)[None, None, :]
+    ty = ((ys - cy * cells) / cells).astype(np.float32)[None, :, None]
     # Smoothstep blending; dividing by the weight norm keeps unit variance everywhere.
     tx, ty = tx * tx * (3 - 2 * tx), ty * ty * (3 - 2 * ty)
     i, j = cx - cx[0], cy - cy[0]
@@ -76,10 +73,19 @@ def world_latents(seed, ix0, iy0, nx, ny, fine_ch, coarse_ch, coarse_cells):
     v10 = lattice[:, j[:, None] + 1, i[None, :]]
     v11 = lattice[:, j[:, None] + 1, i[None, :] + 1]
     w00, w01, w10, w11 = (1 - ty) * (1 - tx), (1 - ty) * tx, ty * (1 - tx), ty * tx
-    coarse = (w00 * v00 + w01 * v01 + w10 * v10 + w11 * v11) / np.sqrt(
-        w00**2 + w01**2 + w10**2 + w11**2
-    )
-    return np.concatenate([fine, coarse], axis=0)
+    return (w00 * v00 + w01 * v01 + w10 * v10 + w11 * v11) / np.sqrt(w00**2 + w01**2 + w10**2 + w11**2)
+
+
+def world_latents(seed, ix0, iy0, nx, ny, fine_ch, coarse_ch, coarse_cells, slow_ch=0, slow_cells=32):
+    """Latent grid: per-cell detail vectors plus smooth large-scale fields.
+
+    The slow field (TODO D4) varies over slow_cells cells, beyond a training crop.
+    """
+    xs, ys = np.arange(ix0, ix0 + nx), np.arange(iy0, iy0 + ny)
+    parts = [world_randn(seed, 1, fine_ch, xs, ys), _smooth_field(seed, 2, coarse_ch, coarse_cells, xs, ys)]
+    if slow_ch:
+        parts.append(_smooth_field(seed, 3, slow_ch, slow_cells, xs, ys))
+    return np.concatenate(parts, axis=0)
 
 
 # --------------------------------------------------------------------- models
@@ -119,13 +125,16 @@ class Generator(nn.Module):
     # S = 16, 8, 4, 2, which sums to 37.5, i.e. the pixel whose centre is at 37.5.
     origin = 37
 
-    def __init__(self, fine_ch=48, coarse_ch=16, coarse_cells=8, channels=(192, 128, 64, 32)):
+    def __init__(self, fine_ch=48, coarse_ch=16, coarse_cells=8, channels=(192, 128, 64, 32), slow_ch=0, slow_cells=32):
         super().__init__()
         self.config = dict(
             fine_ch=fine_ch, coarse_ch=coarse_ch, coarse_cells=coarse_cells, channels=tuple(channels)
         )
+        if slow_ch:
+            self.config.update(slow_ch=slow_ch, slow_cells=slow_cells)
         self.fine_ch, self.coarse_ch, self.coarse_cells = fine_ch, coarse_ch, coarse_cells
-        latent_ch = fine_ch + coarse_ch
+        self.slow_ch, self.slow_cells = slow_ch, slow_cells
+        latent_ch = fine_ch + coarse_ch + slow_ch
         self.mapping = nn.Sequential(
             nn.Conv2d(latent_ch, channels[0], 1),
             nn.LeakyReLU(0.2),
@@ -140,6 +149,12 @@ class Generator(nn.Module):
             self.injections.append(nn.ModuleList([NoiseInjection(ch), NoiseInjection(ch)]))
             prev = ch
         self.out = nn.Conv2d(prev, 1, 1)
+
+    def latents(self, seed, ix0, iy0, nx, ny):
+        """world_latents with this generator's channel layout."""
+        return world_latents(
+            seed, ix0, iy0, nx, ny, self.fine_ch, self.coarse_ch, self.coarse_cells, self.slow_ch, self.slow_cells
+        )
 
     @staticmethod
     def output_size(cells):
@@ -299,7 +314,7 @@ def render(gen, seed, x0, y0, width, height, device, chunk=512):
     iy0 = (y0 - gen.origin) // gen.stride
     nx = gen.cells_for(x0 + width - (ix0 * gen.stride + gen.origin))
     ny = gen.cells_for(y0 + height - (iy0 * gen.stride + gen.origin))
-    latent = world_latents(seed, ix0, iy0, nx, ny, gen.fine_ch, gen.coarse_ch, gen.coarse_cells)
+    latent = gen.latents(seed, ix0, iy0, nx, ny)
     latent = torch.from_numpy(latent)[None].to(device)
 
     def noise_fn(layer, stride, h, w):
