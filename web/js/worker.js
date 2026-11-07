@@ -73,13 +73,13 @@ try {
   const query = new URL(self.location.href).searchParams;
   const forced = query.get("backend");
   // Safari on iPhones and iPads (which may claim to be a Mac) closed the page after a
-  // tile or two; it has less memory per page, and its WebGPU is new. Default to the
-  // CPU backend and smaller pieces there; ?backend=webgpu still tries the GPU.
+  // tile or two with 512 px pieces. With 256 px pieces both backends work there, so
+  // the cause was most likely its lower memory limit per page.
   const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
   const chunk = Number(query.get("chunk")) || (ios ? 256 : DEFAULT_CHUNK);
   const adapter = "gpu" in navigator ? await navigator.gpu.requestAdapter().catch(() => null) : null;
   gpuName = adapter?.info ? `${adapter.info.vendor} ${adapter.info.architecture} ${adapter.info.description}`.trim() : "";
-  const useGpu = adapter && !adapter.info?.isFallbackAdapter && !ios;
+  const useGpu = adapter && !adapter.info?.isFallbackAdapter;
   terrain = await loadTerrain(ort, forced ? [forced] : useGpu ? ["webgpu", "wasm"] : ["wasm"], chunk);
   const levels = terrain.manifest.levels.length;
   // Finest-level pixels per screen pixel, one entry per zoom level. The furthest zoom is

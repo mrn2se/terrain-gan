@@ -37,13 +37,12 @@ of this list, as the paper and commits refer to them.
   realistic than the GAN at every level.
 - [x] **G3. Browser version.** `web/` runs all three levels and matches PyTorch in its tests.
 - [x] **G4. Publish the browser version.** On GitHub Pages under `preview/`. iPhones crashed after a
-  tile or two; with the CPU backend as their default the page now works on an iPhone.
+  tile or two; with 256 px chunks there, both CPU and WebGPU work on an iPhone.
 
 ## Next, easy
 
 Each is one short training run or less, with no new methods.
 
-- [ ] **iPhone WebGPU.** The CPU default works; check whether `?backend=webgpu` crashes, to find the cause.
 - [ ] **C2. Conditioning augmentation.** `train_refiner.py --coarse-blur` is ready. Retrain level 1
   with stronger input noise and level 2 with input blur, as in Ho et al. C1 shows that refiners now pass level 0's excess roughness through.
 - [ ] **B1. Separate the pixel normalisation and R1 changes** in a refiner, with two short runs.
