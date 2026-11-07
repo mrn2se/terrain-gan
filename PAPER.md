@@ -476,6 +476,41 @@ drainage area exponent, though with half again as much land in closed depression
 This supports the central claim: the homogeneity was structural, and the cascade, not
 longer training, removes it at this scale.
 
+### 6.10 Blurred coarse input at level 2
+
+Section 6.7 found that refiners add too little detail to real input, but about the right amount to
+generated input, because level 0 is too rough. Ho et al. (2022) blur the coarse input during
+training so that later stages tolerate imperfect output from earlier ones. We retrained the level-2
+refiner with the same recipe and step count, but with each coarse training input blurred by a
+Gaussian with σ drawn uniformly from 0 to 1 coarse pixel (`train_refiner.py --coarse-blur 1.0`).
+The consistency loss still compares the output with the unblurred input. All numbers are at level 2,
+from 512 tiles, with the current levels 0 and 1 above.
+
+| 0.93 km/px | Current refiner | Blurred input | Real |
+|---|---|---|---|
+| Slope ratio, real input | 0.77 | 0.92 | 1 |
+| Fine spectrum, real input (log₁₀) | −0.21 | −0.07 | 0 |
+| Height RMSE to real, real input (m) | 57 | 66 | 0 |
+| Slope ratio, generated input | 1.04 | 1.27 | 1 |
+| Block-mean RMS against level 1 (m) | 16 | 28 | – |
+| Land in closed depressions, generated | 9.9% | 11.8% | 5.3% |
+| Land in closed depressions, real input | 5.6% | 8.9% | 5.3% |
+| Drainage area exponent, generated | −0.62 | −0.61 | −0.56 |
+
+![Blurred coarse input](docs/figures/coarse_blur_compare.png)
+
+*Figure 12. 237 km tiles at level 2. Top three rows: real coarse input, refined by each model, and
+the real terrain. Bottom three: the same generated worlds with each refiner. The real rows show
+sea floor, as crops were picked by height variation.*
+
+On real input the blurred-input refiner comes much closer to real slopes and fine-scale spectra,
+and its ridges look sharper, at the cost of a larger height error. But it did not become less
+sensitive to the input: it adds more detail to every input, and the ratio between generated and
+real input stays at about 1.35. With today's level 0 the full cascade becomes too rough, and closed
+depressions increase. The model is kept as `models/experiments/local_blur.pt`, and `models/local.pt`
+stays the default. Blur looks worth keeping once level 0 is smoother, as the two errors would then
+no longer cancel. This is one run per setting, so differences of a few percent may be noise.
+
 ## 7. Discussion
 
 **Why a single scale looks homogeneous.** Our generators match the Spatial GAN setting:
@@ -505,7 +540,10 @@ cascade too. Neither has been tried here.
 visibly drops on generated input. This is the compounding error that Ho et al. (2022) identify
 in cascades. Our noise of σ = 0.01 is small, and was not searched. Their finding that blur works
 better at high resolutions suggests it for level 2, although it comes from diffusion models
-on photographs. Beckham and Pal (2017) instead propose joint training for the same symptom.
+on photographs. Section 6.10 tried it: blur made the level-2 refiner add more detail to all inputs,
+which helps on real input, but did not shrink the gap between real and generated input. The gap
+seems to start at level 0, which is too rough, rather than in the refiners. Beckham and Pal (2017)
+instead propose joint training for the same symptom.
 
 ## 8. Limitations of this evaluation
 
@@ -515,7 +553,7 @@ on photographs. Beckham and Pal (2017) instead propose joint training for the sa
   heightmaps poorly. The multi-scale sliced Wasserstein distance of Karras et al. (2018),
   computed directly on image patches, looks better suited.
 - Few controlled ablations. Several changes were made together, and most causes are hypotheses;
-  sections 6.8 and 6.9 are the exceptions.
+  sections 6.8 to 6.10 are the exceptions.
 - One training run per configuration, and all visual checks by the authors.
 - Section 6.7's statistics compare distributions, not structure, apart from the drainage
   check, which is limited by 118 km tiles. The memorisation check uses just 24 tiles and

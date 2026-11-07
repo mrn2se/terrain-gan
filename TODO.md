@@ -30,6 +30,9 @@ of this list, as the paper and commits refer to them.
   alike than real, land and sea alternating every 100 km, grainy look. The cascade is clearly better.
 - [x] **C1. Gap between real and generated input.** On generated input, slopes come out near the real
   level (ratio 1.0), against 0.77 on real input: two errors cancel, as level 0 is too rough.
+- [x] **C2. Blurred coarse input at level 2.** Slopes on real input rise from 77% to 92% of real, but
+  the refiner adds more detail to every input, so the cascade becomes too rough (127%) with
+  today's level 0. Kept as `models/experiments/local_blur.pt`; worth retrying once level 0 is smoother.
 - [x] **D4. Slower level-0 fields.** Mixed. 16 extra channels on a 512 px lattice bring the distance
   curve close to real and reduce repetition, but add speckled shallow flats and sharp-edged
   plateaus. Kept as `models/experiments/world_slow.pt`; `models/world.pt` stays the default.
@@ -43,8 +46,7 @@ of this list, as the paper and commits refer to them.
 
 Each is one short training run or less, with no new methods.
 
-- [ ] **C2. Conditioning augmentation.** `train_refiner.py --coarse-blur` is ready. Retrain level 1
-  with stronger input noise and level 2 with input blur, as in Ho et al. C1 shows that refiners now pass level 0's excess roughness through.
+- [ ] **C2b. Stronger input noise at level 1**, as in Ho et al. Level 2 with blur is done (C2 above).
 - [ ] **B1. Separate the pixel normalisation and R1 changes** in a refiner, with two short runs.
 - [ ] **B3. Slope gain against R1.** A few short runs; record the discriminator's real and fake separation.
 - [ ] **E2. Ocean-aware refiners.** Retrain one refiner with a higher ocean share, and compare sea floors.
