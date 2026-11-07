@@ -83,7 +83,7 @@ et al., 2017), which pairs an adversarial loss with L1 to the ground truth, and 
 patch discriminator that acts as a texture loss. Two differences matter. Our consistency
 term compares only block means to the coarse input, so it leaves fine detail free, and we
 do not compare to ground truth. Also, pix2pix reports its generator ignoring Gaussian input
-noise, so this is a risk for us that we have not yet measured. SRGAN (Ledig et al., 2017)
+noise. Section 6.7 shows that ours do not. SRGAN (Ledig et al., 2017)
 argues that pixel-wise losses and PSNR miss perceptual quality at 4× upscaling, the same
 factor we use. Our roughness experience is a related warning about simple measures.
 
@@ -328,6 +328,90 @@ glance. Weaknesses are consistent:
 On the GTX 1650, most 256 px map tiles took about 0.05 s, and the most zoomed-out took about
 1.4 s. These were single measurements and exclude browser time.
 
+### 6.7 Terrain statistics
+
+`measure.py` compares each level with real terrain over 512 tiles of 128 px, using the
+training crop rules for both (land share at least 0.3, with 10% of other crops kept).
+"Generated" is the whole cascade down to that level, from random worlds and places.
+"Refined real" is the level's refiner on block means of the real crops. Bicubic and bilinear
+upscale those same block means. "fBm noise" is fractal noise with the real mean power-law
+spectrum, each tile scaled to the mean and spread of a random real tile, standing in for
+classic procedural methods.
+
+![Level 2 statistics](docs/figures/stats_level2.png)
+
+*Figure 7. Level 2: hypsometric curves, slope distributions and power spectra. The figures
+for levels 0 and 1 are `docs/figures/stats_level0.png` and `stats_level1.png`.*
+
+| Level 2, 0.93 km/px | Height error (m) | Slope ratio | Slope distance (°) | Fine spectrum (log₁₀) |
+|---|---|---|---|---|
+| Generated | | 1.04 | 0.09 | −0.01 |
+| Refined real | 57 | 0.77 | 0.41 | −0.21 |
+| Bicubic | 44 | 0.64 | 0.64 | −2.57 |
+| Bilinear | 50 | 0.55 | 0.79 | −2.13 |
+| fBm noise | | 1.43 | 0.75 | +0.27 |
+
+Slope ratio is mean slope over the real mean. Slope distance is the 1-Wasserstein distance between
+slope distributions. Fine spectrum is the mean log₁₀ power ratio against real at wavelengths of
+2 to 8 px, where 0 is right and −1 is a tenth of the real power. Level 1 gives the same picture
+(refined real: error 115 m against 91 m for bicubic, slope ratio 0.79 against 0.60).
+
+**Refiners against upscaling (A2).** As Ledig et al. predict for GAN super-resolution, the
+refiners have larger height errors than bicubic upscaling but far more realistic texture.
+Bicubic output has about 1/300 of the real fine-scale power.
+
+**Real against generated input (C1).** On real input the refiners add too little detail,
+reaching 77–79% of the real slope. On generated input, slopes are close to real (ratio 1.04 at
+level 2, 1.11 at level 1). This is no evidence that generated input is better: level 0 is too
+rough (slope ratio 1.20), and the refiners pass that roughness down. Two errors cancel.
+
+**Level 0.** Spectra match well, but the slope distribution lacks real Earth's peak of nearly
+flat ground, in plains and abyssal plains, and the hypsometric curve shows a softened
+continental shelf edge. Both fit the bumpy texture seen in section 6.5.
+
+**Noise use (A1).** Rendering the same real input with a new latent field and new layer noise
+leaves a correlation of 0.44 (level 1) and 0.43 (level 2) in the added detail, measured against
+bilinear upscaling. A new layer noise alone leaves 0.87–0.91. The refiners therefore do not
+ignore their randomness, unlike the generator of Isola et al. Most variation comes from the
+latent field, and the correlated part is a deterministic sharpening of the input.
+
+**Zoom consistency (A7).** Block means of generated levels 1 and 2 differ from the level above by
+36 and 16 m RMS, small against their height ranges.
+
+**Repetition (A8).** Correlations between random pairs of level-0 tiles, best of eight
+orientations on 32 px versions, have a median of 0.46 for generated tiles and 0.40 for real
+(0.7% and 0.2% above 0.9). Generated worlds repeat their forms slightly more than Earth, but not
+enough to suggest mode collapse.
+
+![Distance](docs/figures/variogram.png)
+
+*Figure 8. RMS height difference between points a given distance apart, north to south.
+Real: within ±60° latitude. Generated: eight 1,024 px worlds at level 0.*
+
+**Long distances (A6).** Up to about 400 km, generated and real height differences agree. From
+about 1,000 to 3,000 km generated worlds differ too much (2,131 against 1,891 m at 965 km, 3,335
+against 2,806 m at 2,776 km) and level off sooner. Generated continents and oceans alternate
+on a shorter scale than real ones, as section 7 predicts for the limited reach of level 0.
+
+![Drainage](docs/figures/hydrology.png)
+
+*Figure 9. Drainage areas at level 2 over 256 tiles: the share of land cells draining at
+least a given area, with the fitted slope.*
+
+**Drainage (A5).** We filled depressions by priority flood (Barnes et al., 2014) and routed water to
+the steepest neighbour (D8), with the sea and tile edges as outlets. Real land at level 2 has
+5.3% of its cells in closed depressions (mean fill 0.5 m). Generated land has 9.9% (3.6 m) and
+fractal noise 18.7% (8.0 m). For real river networks the share of cells draining at least
+area *a* falls roughly as *a*^−0.43 (Rodríguez-Iturbe and Rinaldo, 1997). Our real tiles give
+−0.56, as 118 km tiles cut off large basins. Generated tiles give −0.62, refined real input
+−0.59, bicubic −0.63 and fractal noise −0.64. A steeper slope means water gathers into large
+rivers less. This makes the missing rivers of section 6.5 measurable: they are clearly better
+than noise, but behind real terrain and behind refined real input.
+
+**Fractal noise (F1).** Even with the real spectrum, fractal noise has slopes 43% too steep at
+level 2 and twice too steep at level 0, and the worst drainage. Matching the spectrum alone
+does not give realistic terrain, and the GANs are well ahead of this baseline.
+
 ## 7. Discussion
 
 **Why a single scale looks homogeneous.** Our generators match the Spatial GAN setting:
@@ -341,7 +425,8 @@ case that the fault was structural, although we did not train a converged baseli
 moves its scale. Level 0 sees 1,900 km crops, so tile variety appears at a scale the viewer
 notices, whereas the single-scale model saw only 120 km. Beyond the reach of level 0, about
 1,400 km plus its 128 px smooth field, generated worlds should have no structure, such as
-supercontinents or planet-wide tectonic patterns. We have not measured this. ALIS and InfinityGAN address global consistency directly, and adding
+supercontinents or planet-wide tectonic patterns. Section 6.7 confirms that land and sea
+alternate on too short a scale beyond about 1,000 km. ALIS and InfinityGAN address global consistency directly, and adding
 slower latent fields to level 0 is an obvious simple alternative.
 
 **Why rivers are missing.** Rivers and ridges are organised over long distances. Each refiner
@@ -367,8 +452,9 @@ on photographs. Beckham and Pal (2017) instead propose joint training for the sa
   computed directly on image patches, looks better suited.
 - No controlled ablation. Several changes were made together, and causes are hypotheses.
 - One training run per configuration, and all visual checks by the authors.
-- Variety statistics describe tile-level summaries, not terrain structure, and the
-  memorisation check uses just 24 tiles and only covers level 0.
+- Section 6.7's statistics compare distributions, not structure, apart from the drainage
+  check, which is limited by 118 km tiles. The memorisation check uses just 24 tiles and
+  only covers level 0.
 - Training stopped at 20,000 steps per level. Longer runs were not explored.
 - Figures come from a few seeds and positions, chosen to include land.
 
@@ -388,8 +474,10 @@ metrics and visual checks should be used together. Open questions are listed in
 Titles and first authors were checked against arXiv, Crossref or the papers. All were read in
 part for this report (abstracts and relevant sections, not cover to cover). Venues were also
 checked, except Ho et al.'s journal. Beckham and Pal, and Jetchev et al., are workshop papers
-cited through arXiv.
+cited through arXiv. Barnes et al. and Rodríguez-Iturbe and Rinaldo were added for the
+drainage check and cited from memory, without rereading.
 
+- Barnes, R., Lehman, C., Mulla, D. (2014). Priority-flood: An optimal depression-filling and watershed-labeling algorithm for digital elevation models. Computers & Geosciences.
 - Beckham, C., Pal, C. (2017). A step towards procedural terrain generation with GANs. arXiv:1707.03383.
 - Bergmann, U., Jetchev, N., Vollgraf, R. (2017). Learning texture manifolds with the Periodic Spatial GAN. ICML.
 - Guérin, É., et al. (2017). Interactive example-based terrain authoring with conditional generative adversarial networks. ACM Transactions on Graphics.
@@ -401,4 +489,5 @@ cited through arXiv.
 - Lin, C. H., et al. (2022). InfinityGAN: Towards infinite-pixel image synthesis. ICLR.
 - Mescheder, L., Geiger, A., Nowozin, S. (2018). Which training methods for GANs do actually converge? ICML.
 - NOAA National Centers for Environmental Information (2022). ETOPO 2022 15 Arc-Second Global Relief Model. doi:10.25921/fd45-gt74. Accessed 1 November 2026.
+- Rodríguez-Iturbe, I., Rinaldo, A. (1997). Fractal River Basins: Chance and Self-Organization. Cambridge University Press.
 - Skorokhodov, I., Sotnikov, G., Elhoseiny, M. (2021). Aligning latent and image spaces to connect the unconnectable. ICCV.
