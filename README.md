@@ -139,6 +139,22 @@ uv run evaluate.py --ckpt models/world.pt \
 
 It only handles a level-0 generator. Refiners are not supported.
 
+## Terrain statistics
+
+`measure.py` compares every level with real terrain on the CPU, in about ten minutes:
+height, slope and spectrum distributions; the refiners against bicubic and bilinear
+upscaling and on real against generated input; whether the refiners use their noise; how
+height differences grow with distance; how alike tiles are; and, at the finest level,
+whether water drains. Fractal noise is included as a simple baseline. See section 6.7 of
+the paper for what the numbers mean.
+
+```sh
+uv run measure.py                     # all three levels, figures into docs/figures
+uv run measure.py --ckpt runs/world_slow/generator_0020000.pt --out /tmp/w   # one world model
+```
+
+It loads the data the same way training does, so the first run builds the same cache.
+
 ## Project layout
 
 | Path | Contents |
@@ -149,6 +165,7 @@ It only handles a level-0 generator. Refiners are not supported.
 | `generate.py` | Model loading and tile generation |
 | `serve.py` | OpenLayers map server and seed `-1` mode |
 | `evaluate.py` | Copying check |
+| `measure.py` | Terrain statistics against real terrain |
 | `test_seamless.py` | Alignment and seamlessness tests |
 | `serve_all.sh` | Starts the map, browser version and TensorBoard together |
 | `web/` | Static browser version, its model export and tests |

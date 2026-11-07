@@ -94,8 +94,9 @@ export class Terrain {
 
     const feeds = {};
     if (level.kind === "generator") {
-      const channels = level.fine_ch + level.coarse_ch;
-      const latent = worldLatents(seed, ix0, iy0, nx, ny, level.fine_ch, level.coarse_ch, level.coarse_cells);
+      const slowCh = level.slow_ch || 0;
+      const channels = level.fine_ch + level.coarse_ch + slowCh;
+      const latent = worldLatents(seed, ix0, iy0, nx, ny, level.fine_ch, level.coarse_ch, level.coarse_cells, slowCh, level.slow_cells);
       feeds.latent = new Tensor("float32", latent, [1, channels, ny, nx]);
     } else {
       const coarse = await this.render(index - 1, seed, ix0, iy0, nx, ny);

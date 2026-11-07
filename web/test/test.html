@@ -31,7 +31,7 @@ try {
   const terrain = await loadTerrain(ort, [provider]);
   const world = terrain.manifest.levels[0];
   const l = reference.latents;
-  const latents = worldLatents(l.seed, l.ix0, l.iy0, l.nx, l.ny, world.fine_ch, world.coarse_ch, world.coarse_cells);
+  const latents = worldLatents(l.seed, l.ix0, l.iy0, l.nx, l.ny, world.fine_ch, world.coarse_ch, world.coarse_cells, world.slow_ch || 0, world.slow_cells);
   check("latents", worst(latents, l.values), 1e-5);
 
   for (const t of reference.tiles) {

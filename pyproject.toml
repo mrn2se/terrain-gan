@@ -3,7 +3,15 @@ name = "terrain-gan"
 version = "0.1.0"
 description = "Seamless endless terrain GAN trained on global elevation data"
 requires-python = ">=3.12,<3.13"
-dependencies = ["torch>=2.6", "numpy", "rasterio", "pillow", "tensorboard", "setuptools<81"]
+dependencies = [
+    "torch>=2.6",
+    "numpy",
+    "rasterio",
+    "pillow",
+    "tensorboard",
+    "setuptools<81",
+    "matplotlib>=3.11.2",
+]
 
 [tool.uv]
 package = false

@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT.parent))
 
 from generate import load_cascade  # noqa: E402
-from terrain_gan import Blur, Generator, Refiner, world_latents, world_randn  # noqa: E402
+from terrain_gan import Blur, Generator, Refiner, world_randn  # noqa: E402
 
 
 def constant_channel_blur(self, x):
@@ -53,7 +53,7 @@ def export(model, path):
         size *= 2
         noises += [torch.zeros(1, 1, size - 4, size - 4), torch.zeros(1, 1, size - 6, size - 6)]
         size -= 6
-    latent_ch = model.latent_ch if refiner else model.fine_ch + model.coarse_ch
+    latent_ch = model.latent_ch if refiner else model.fine_ch + model.coarse_ch + model.slow_ch
     latent = torch.zeros(1, latent_ch, cells, cells)
     inputs = ([torch.zeros(1, 1, cells, cells)] if refiner else []) + [latent] + noises
     names = (["coarse"] if refiner else []) + ["latent"] + [f"noise{i}" for i in range(layers)]
@@ -94,6 +94,8 @@ def main():
                 coarse_ch=model.coarse_ch,
                 coarse_cells=model.coarse_cells,
             )
+            if model.slow_ch:
+                level.update(slow_ch=model.slow_ch, slow_cells=model.slow_cells)
         else:
             level.update(kind="refiner", latent_ch=model.latent_ch)
         levels.append(level)
@@ -119,7 +121,7 @@ def main():
             iy0=5,
             nx=6,
             ny=7,
-            values=world_latents(7, -13, 5, 6, 7, gen.fine_ch, gen.coarse_ch, gen.coarse_cells).ravel().tolist(),
+            values=gen.latents(7, -13, 5, 6, 7).ravel().tolist(),
         ),
         tiles=[
             dict(

@@ -77,22 +77,19 @@ export function worldRandn(seed, tag, channels, x0, y0, nx, ny, out = new Float3
 
 const f = Math.fround;
 
-// Per-cell detail vectors plus a smooth large-scale field; shape (fine + coarse, ny, nx).
-export function worldLatents(seed, ix0, iy0, nx, ny, fineCh, coarseCh, cells) {
-  const out = new Float32Array((fineCh + coarseCh) * ny * nx);
-  worldRandn(seed, 1, fineCh, ix0, iy0, nx, ny, out, 0);
-
+// Unit-variance noise on a lattice every `cells` cells, smoothly interpolated, written
+// as channels x ny x nx into out from offset k.
+function smoothField(seed, tag, channels, cells, ix0, iy0, nx, ny, out, k) {
   const cx0 = Math.floor(ix0 / cells), cy0 = Math.floor(iy0 / cells);
   const lx = Math.floor((ix0 + nx - 1) / cells) - cx0 + 2;
   const ly = Math.floor((iy0 + ny - 1) / cells) - cy0 + 2;
-  const lattice = worldRandn(seed, 2, coarseCh, cx0, cy0, lx, ly);
+  const lattice = worldRandn(seed, tag, channels, cx0, cy0, lx, ly);
 
   const smooth = (t) => {
     t = f(t);
     return f(f(t * t) * f(3 - f(2 * t)));
   };
-  let k = fineCh * ny * nx;
-  for (let c = 0; c < coarseCh; c++) {
+  for (let c = 0; c < channels; c++) {
     const base = c * ly * lx;
     for (let y = 0; y < ny; y++) {
       const wy = iy0 + y, cy = Math.floor(wy / cells), j = cy - cy0;
@@ -108,5 +105,13 @@ export function worldLatents(seed, ix0, iy0, nx, ny, fineCh, coarseCh, cells) {
       }
     }
   }
+}
+
+// Per-cell detail vectors plus smooth large-scale fields; shape (fine + coarse + slow, ny, nx).
+export function worldLatents(seed, ix0, iy0, nx, ny, fineCh, coarseCh, cells, slowCh = 0, slowCells = 32) {
+  const out = new Float32Array((fineCh + coarseCh + slowCh) * ny * nx);
+  worldRandn(seed, 1, fineCh, ix0, iy0, nx, ny, out, 0);
+  smoothField(seed, 2, coarseCh, cells, ix0, iy0, nx, ny, out, fineCh * ny * nx);
+  if (slowCh) smoothField(seed, 3, slowCh, slowCells, ix0, iy0, nx, ny, out, (fineCh + coarseCh) * ny * nx);
   return out;
 }

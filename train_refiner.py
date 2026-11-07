@@ -35,13 +35,14 @@ from train import cache_downsampled, cache_raster
 class RefinerCrops(IterableDataset):
     """Endless (coarse, fine) pairs. The coarse pixels are block means of the fine ones."""
 
-    def __init__(self, npy, px_per_degree, cells, max_lat=72.0, min_land=0.3, ocean_keep=0.1):
+    def __init__(self, npy, px_per_degree, cells, max_lat=72.0, min_land=0.3, ocean_keep=0.1, seed=None):
         self.npy, self.ppd, self.cells = str(npy), px_per_degree, cells
         self.max_lat, self.min_land, self.ocean_keep = max_lat, min_land, ocean_keep
+        self.seed = seed
 
     def __iter__(self):
         info = get_worker_info()
-        rng = np.random.default_rng(info.seed if info else None)
+        rng = np.random.default_rng(info.seed if info else self.seed)
         data = np.load(self.npy, mmap_mode="r")
         rows, cols = data.shape
         side = self.cells * Refiner.stride
