@@ -412,6 +412,32 @@ than noise, but behind real terrain and behind refined real input.
 level 2 and twice too steep at level 0, and the worst drainage. Matching the spectrum alone
 does not give realistic terrain, and the GANs are well ahead of this baseline.
 
+### 6.8 Slower latent fields at level 0
+
+To test the reach argument of section 7, we retrained level 0 with 16 more latent channels on a
+lattice every 32 cells (512 px, about 7,600 km), interpolated like the existing smooth field
+(`train.py --slow-ch 16`, 20,000 steps, everything else unchanged). Within a 128 px training
+crop this field is nearly constant, so it acts as a regional style.
+
+| Level 0 | Current | Slow field | Real |
+|---|---|---|---|
+| RMS difference at 965 km (m) | 2,131 | 1,804 | 1,891 |
+| RMS difference at 2,776 km (m) | 3,335 | 2,649 | 2,806 |
+| Slope ratio | 1.20 | 1.10 | 1 |
+| Tile slope spread (°) | 0.16 | 0.14 | 0.25 |
+| Pair similarity, median | 0.46 | 0.36 | 0.40 |
+| Height distance (m) | 282 | 343 | 0 |
+
+![Slow field comparison](docs/figures/slow_field_compare.png)
+
+*Figure 10. Seeds 1 to 4, about 11,400 × 5,700 km. Left: current level 0. Right: with the slow field.*
+
+The distance curve moves close to real Earth, and worlds now differ in their overall
+character, from almost pure ocean to land-rich. Visually, though, the change is mixed: the
+new model draws speckled shallow flats full of tiny islands and plateaus with sharp edges,
+and still some ring-shaped basins. We keep the current level 0 as the default. The refiners
+were not retrained for the new level 0.
+
 ## 7. Discussion
 
 **Why a single scale looks homogeneous.** Our generators match the Spatial GAN setting:
@@ -426,8 +452,8 @@ moves its scale. Level 0 sees 1,900 km crops, so tile variety appears at a scale
 notices, whereas the single-scale model saw only 120 km. Beyond the reach of level 0, about
 1,400 km plus its 128 px smooth field, generated worlds should have no structure, such as
 supercontinents or planet-wide tectonic patterns. Section 6.7 confirms that land and sea
-alternate on too short a scale beyond about 1,000 km. ALIS and InfinityGAN address global consistency directly, and adding
-slower latent fields to level 0 is an obvious simple alternative.
+alternate on too short a scale beyond about 1,000 km, and section 6.8 shows a slower latent
+field fixing this statistic, at a visual cost. ALIS and InfinityGAN address global consistency directly.
 
 **Why rivers are missing.** Rivers and ridges are organised over long distances. Each refiner
 sees only about 10 coarse pixels, and level 0 has too little resolution, so no level is well
