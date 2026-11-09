@@ -580,7 +580,14 @@ An R1 = 60 level 0 does not fall between the other two. Its level-0 slope ratio 
 as R1 = 40, with large bumpy plateaus, and with both blurred refiners it reaches 1.12 at level 2,
 with 11.6% of land in closed depressions. Across 10, 40, 60 and 80, level-0 roughness thus does not
 fall steadily with R1 (1.20, 1.13, 1.15, 1.06), and differences between training runs may be as
-large as the effect of R1. Repeating runs with other seeds would be needed to separate them.
+large as the effect of R1.
+
+A second R1 = 80 run, from a different random start, again gives a smooth level 0 (slope ratio
+0.98), so that effect of the strong penalty holds. With both blurred refiners below it, though,
+level 2 comes out too smooth (0.84, against 1.03 for the first run), with 11.1% of land in closed
+depressions. Level 0 differs between the two runs by only 0.08 in slope ratio, but level 2 by 0.19:
+the refiners amplify small differences at level 0, so the whole cascade's roughness rests on
+level 0. Only the first run's combination matches real at level 2, which may be partly luck.
 
 Combined with the blurred-input refiner of section 6.10, this smoother level 0 gives a level-2 slope
 ratio of 1.08, with too much power at middle wavelengths (+0.21 in log₁₀) and 10.2% of land in

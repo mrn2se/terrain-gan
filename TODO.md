@@ -55,8 +55,10 @@ of this list, as the paper and commits refer to them.
 Each is one short training run or less, with no new methods.
 
 - [ ] **B1. Separate the pixel normalisation and R1 changes** in a refiner, with two short runs.
-- [ ] **B3c. Repeat runs.** Train R1 40 and 80 at level 0 again with other seeds, to tell the
-  effect of R1 from run-to-run spread.
+- [ ] **B3c. Repeat R1 40**, as R1 80 was repeated (smooth both times, 1.06 and 0.98).
+- [ ] **C4. Roughness that does not depend on level 0.** The refiners amplify small level-0
+  differences (0.08 at level 0 became 0.19 at level 2). Training them on generated input (C3)
+  or matching detail statistics per tile might decouple them.
 - [ ] **E2. Ocean-aware refiners.** Retrain one refiner with a higher ocean share, and compare sea floors.
 - [ ] **E4. 64 px crops at level 0.** Earth has only a few hundred independent 128 px crops.
 - [ ] **A9. Copying in refiners.** Extend `evaluate.py` beyond level 0, with more than 24 tiles.
