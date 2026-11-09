@@ -49,6 +49,10 @@ Open <http://127.0.0.1:8000/>. Pan, zoom and change the seed; the map picks the
 right level for each zoom. The URL keeps the seed and position, so views can be
 shared. The browser needs internet access, because OpenLayers loads from a CDN.
 
+**The Models list** switches between the default models and the experiments of
+[PAPER.md](PAPER.md), keeping seed and position. The sets are listed in `models/sets.json`;
+sets whose files are missing, such as those under `runs/` after a fresh clone, are left out.
+
 **Seed `-1` shows the real elevation data** at the same zoom levels, for direct
 comparison. In this mode longitude and latitude are real places, for example
 `/?seed=-1&lon=86.9&lat=28`. High latitudes look stretched east-west, because the
@@ -56,7 +60,8 @@ real data is not corrected for the map projection.
 
 | Option | Default | Purpose |
 |---|---|---|
-| `--ckpt` | The three models in `models/` | Checkpoints, coarsest first; reloaded when they change |
+| `--sets` | `models/sets.json` | Model sets for the Models list |
+| `--ckpt` | none | Serve only these checkpoints, coarsest first, instead of the sets |
 | `--host` | `127.0.0.1` | Use `0.0.0.0` to allow other machines. There is no authentication |
 | `--port` | `8000` | Port |
 | `--device` | GPU if available | Use `cpu` while training, as sharing a 4 GB GPU risks running out of memory |
@@ -169,7 +174,7 @@ It loads the data the same way training does, so the first run builds the same c
 | `test_seamless.py` | Alignment and seamlessness tests |
 | `serve_all.sh` | Starts the map, browser version and TensorBoard together |
 | `web/` | Static browser version, its model export and tests |
-| `models/` | Trained models |
+| `models/` | Trained models; `models/experiments/` holds the paper's experiments, `models/sets.json` the map's model sets |
 | `docs/figures/` | Images used by the documentation |
 
 `runs/`, `cache/` and `data/` are ignored by git.

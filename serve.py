@@ -1,17 +1,21 @@
 """Browse the endless world in OpenLayers.
 
-Usage: uv run serve.py [--ckpt models/world.pt models/regional.pt models/local.pt] [--port 8000] [--device cpu]
-Checkpoints are reloaded when they change, so this can run alongside training.
-World seed -1 shows the real elevation data instead of the GAN.
+Usage: uv run serve.py [--sets models/sets.json | --ckpt WORLD [REFINER ...]] [--port 8000] [--device cpu]
+The page offers each model set of --sets whose files exist, in a drop-down list; --ckpt serves
+just one set instead. Checkpoints are reloaded when they change, so this can run alongside
+training. World seed -1 shows the real elevation data instead of the GAN.
 """
 
 import argparse
+import html
 import io
+import json
 import os
 import re
 import threading
 from functools import lru_cache
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlsplit
 
 import numpy as np
 import torch
@@ -37,19 +41,24 @@ PAGE = """<!DOCTYPE html>
   #panel { position: absolute; top: 8px; right: 8px; z-index: 10; padding: 8px 10px;
            background: #fffd; font: 14px sans-serif; border-radius: 4px; }
   #panel input { width: 6em; }
+  #panel select { max-width: 30em; }
+  #panel label { display: block; margin-bottom: 4px; }
 </style>
 </head>
 <body>
 <div id="map"></div>
 <div id="panel">
+  <label %(set_style)s>Models <select id="set">%(options)s</select></label>
   <label>World seed (-1 = real Earth) <input id="seed" type="number" min="-1" step="1"></label>
   <div id="pos">&nbsp;</div>
 </div>
 <script>
 const PX_PER_DEGREE = %(ppd)f;
 const RESOLUTIONS = %(resolutions)s;
+const SET = %(set)s;
 const params = new URLSearchParams(location.search);
 const seedInput = document.getElementById('seed');
+const setSelect = document.getElementById('set');
 seedInput.value = params.get('seed') || '0';
 
 const projection = new ol.proj.Projection({code: 'WORLD', units: 'pixels'});
@@ -57,7 +66,7 @@ const source = new ol.source.TileImage({
   projection,
   wrapX: false,
   tileGrid: new ol.tilegrid.TileGrid({origin: [0, 0], resolutions: RESOLUTIONS, tileSize: %(tile)d}),
-  tileUrlFunction: ([z, x, y]) => `/tile/${seedInput.value}/${z}/${x}/${y}.png`,
+  tileUrlFunction: ([z, x, y]) => `/tile/${SET}/${seedInput.value}/${z}/${x}/${y}.png`,
 });
 const view = new ol.View({
   projection,
@@ -68,11 +77,19 @@ const view = new ol.View({
 });
 const map = new ol.Map({target: 'map', layers: [new ol.layer.Tile({source})], view});
 
-function updateUrl() {
+function query() {
   const [x, y] = view.getCenter();
-  const q = new URLSearchParams({seed: seedInput.value, lon: (x / PX_PER_DEGREE).toFixed(3), lat: (y / PX_PER_DEGREE).toFixed(3)});
-  history.replaceState(null, '', '?' + q);
+  return new URLSearchParams({set: SET, seed: seedInput.value, lon: (x / PX_PER_DEGREE).toFixed(3), lat: (y / PX_PER_DEGREE).toFixed(3)});
 }
+function updateUrl() {
+  history.replaceState(null, '', '?' + query());
+}
+// Model sets can have different numbers of levels and so different zoom steps: reload the page.
+setSelect.addEventListener('change', () => {
+  const q = query();
+  q.set('set', setSelect.value);
+  location.search = '?' + q;
+});
 seedInput.addEventListener('change', () => { source.refresh(); updateUrl(); });
 map.on('moveend', updateUrl);
 map.on('pointermove', (e) => {
@@ -162,7 +179,8 @@ class TileRenderer:
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--ckpt", nargs="+", default=["models/world.pt", "models/regional.pt", "models/local.pt"], help="world generator, then any refiners")
+    p.add_argument("--sets", default="models/sets.json", help="model sets for the drop-down list")
+    p.add_argument("--ckpt", nargs="+", help="serve only this set: world generator, then any refiners")
     p.add_argument("--data", default="data/ETOPO_2022_v1_30s_N90W180_bed.tif", help="source of the seed -1 ground truth")
     p.add_argument("--cache-dir", default="cache")
     p.add_argument("--host", default="127.0.0.1")
@@ -170,8 +188,28 @@ def main():
     p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     args = p.parse_args()
 
-    renderer = TileRenderer(args.ckpt, args.device, GroundTruth(args.data, args.cache_dir))
-    tile_path = re.compile(r"^/tile/(-?\d+)/(\d+)/(-?\d+)/(-?\d+)\.png$")
+    if args.ckpt:
+        sets = [{"name": "custom", "label": " ".join(args.ckpt), "ckpt": args.ckpt}]
+    else:
+        with open(args.sets) as f:
+            sets = json.load(f)
+        missing = [s["name"] for s in sets if not all(os.path.exists(path) for path in s["ckpt"])]
+        if missing:
+            print(f"skipped model sets with missing files: {', '.join(missing)}", flush=True)
+        sets = [s for s in sets if s["name"] not in missing]
+    ground_truth = GroundTruth(args.data, args.cache_dir)
+    renderers = {}  # loaded on first use
+    renderers_lock = threading.Lock()
+
+    def renderer_for(name):
+        with renderers_lock:
+            if name not in renderers:
+                ckpt = next(s["ckpt"] for s in sets if s["name"] == name)
+                renderers[name] = TileRenderer(ckpt, args.device, ground_truth)
+            return renderers[name]
+
+    names = {s["name"] for s in sets}
+    tile_path = re.compile(r"^/tile/([\w-]+)/(-?\d+)/(\d+)/(-?\d+)/(-?\d+)\.png$")
 
     class Handler(BaseHTTPRequestHandler):
         def respond(self, body, content_type):
@@ -183,18 +221,31 @@ def main():
             self.wfile.write(body)
 
         def do_GET(self):
-            path = self.path.split("?")[0]
-            if path == "/":
-                page = PAGE % dict(ppd=renderer.ppd, resolutions=renderer.resolutions, tile=TILE)
+            url = urlsplit(self.path)
+            if url.path == "/":
+                name = parse_qs(url.query).get("set", [sets[0]["name"]])[0]
+                name = name if name in names else sets[0]["name"]
+                renderer = renderer_for(name)
+                options = "".join(
+                    f'<option value="{s["name"]}"{" selected" if s["name"] == name else ""}>{html.escape(s["label"])}</option>' for s in sets
+                )
+                page = PAGE % dict(
+                    ppd=renderer.ppd, resolutions=renderer.resolutions, tile=TILE, set=json.dumps(name),
+                    options=options, set_style='style="display:none"' if len(sets) == 1 else "",
+                )
                 self.respond(page.encode(), "text/html; charset=utf-8")
                 return
-            match = tile_path.match(path)
-            if not match or int(match[2]) >= len(renderer.resolutions):
+            match = tile_path.match(url.path)
+            if not match or match[1] not in names:
+                self.send_error(404)
+                return
+            renderer = renderer_for(match[1])
+            if int(match[3]) >= len(renderer.resolutions):
                 self.send_error(404)
                 return
             with renderer.lock:
                 version = renderer.reload()
-            seed, z, x, y = (int(v) for v in match.groups())
+            seed, z, x, y = (int(v) for v in match.groups()[1:])
             if seed < GROUND_TRUTH_SEED:
                 self.send_error(404)
                 return
