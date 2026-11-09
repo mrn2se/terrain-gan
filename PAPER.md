@@ -518,27 +518,34 @@ weight of 40 instead of 10, otherwise unchanged. A stronger penalty keeps the di
 smoother, which might weaken its push towards fine detail. Numbers are for generated terrain at
 each level, with the current refiners below, from 512 tiles.
 
-| Generated terrain | R1 = 10 (current) | R1 = 40 | Real |
-|---|---|---|---|
-| Level 0 slope ratio | 1.20 | 1.13 | 1 |
-| Level 0 height distance (m) | 282 | 138 | 0 |
-| Level 1 slope ratio | 1.11 | 1.00 | 1 |
-| Level 2 slope ratio | 1.04 | 0.95 | 1 |
-| Level 2 land in closed depressions | 9.9% | 8.3% | 5.3% |
-| Level 2 drainage area exponent | −0.62 | −0.62 | −0.56 |
-| Pair similarity, median | 0.46 | 0.44 | 0.40 |
-| RMS difference at 965 km (m) | 2,131 | 2,044 | 1,891 |
+| Generated terrain | R1 = 10 (current) | R1 = 40 | R1 = 80 | Real |
+|---|---|---|---|---|
+| Level 0 slope ratio | 1.20 | 1.13 | 1.06 | 1 |
+| Level 0 height distance (m) | 282 | 138 | 235 | 0 |
+| Level 1 slope ratio | 1.11 | 1.00 | 0.75 | 1 |
+| Level 2 slope ratio | 1.04 | 0.95 | 0.68 | 1 |
+| Level 2 land in closed depressions | 9.9% | 8.3% | 6.8% | 5.3% |
+| Level 2 drainage area exponent | −0.62 | −0.62 | −0.61 | −0.56 |
+| Pair similarity, median | 0.46 | 0.44 | 0.44 | 0.40 |
+| RMS difference at 965 km (m) | 2,131 | 2,044 | 2,124 | 1,891 |
 
 ![R1 10 against 40](docs/figures/r1_world_compare.png)
 
-*Figure 13. Level 0, 7,600 × 3,800 km, seeds 1 to 4. Left: R1 = 10. Right: R1 = 40. The same
+*Figure 13. Level 0, 7,600 × 3,800 km, seeds 1 to 4. Left to right: R1 = 10, 40 and 80. The same
 seed gives an unrelated world with different weights.*
 
 Every statistic moves towards real, and the improvement carries through to the levels below.
 Visually, the stronger penalty gives broad lowland plains and wide shallow shelves, which the
 current model rarely makes, and fewer round, domed continents. But it also gives speckled
 shallow flats along some coasts, as in section 6.8, and at least one sharp escarpment. Kept as
-`models/experiments/world_r1_40.pt`. The R1 weight was not searched further, and this is one run.
+`models/experiments/world_r1_40.pt`.
+
+R1 = 80 goes too far. Level 0 slopes come closest to real (1.06), but mountains and mid-ocean ridges
+mostly disappear, the sea floor turns blurry and the height distribution moves away from real again.
+Below it, the cascade is too smooth (0.68 at level 2), as the refiners now add as little detail to
+generated input as to real input (section 6.7). A rough level 0 thus hid the refiners' detail
+deficit, and fixing one requires fixing the other. Kept as `models/experiments/world_r1_80.pt`.
+Each weight is one run.
 
 Combined with the blurred-input refiner of section 6.10, this smoother level 0 gives a level-2 slope
 ratio of 1.08, with too much power at middle wavelengths (+0.21 in log₁₀) and 10.2% of land in
