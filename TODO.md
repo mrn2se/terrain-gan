@@ -37,6 +37,9 @@ of this list, as the paper and commits refer to them.
 - [x] **C2. Blurred coarse input at level 2.** Slopes on real input rise from 77% to 92% of real, but
   the refiner adds more detail to every input, so the cascade becomes too rough (127%) with
   today's level 0. Kept as `models/experiments/local_blur.pt`; worth retrying once level 0 is smoother.
+- [x] **C2b. Blurred input at level 1, combined with R1 80.** Level-2 statistics closest to real so
+  far (slope ratio 1.03, height distance 104 m), but more closed depressions and a ridge-poor sea
+  floor. `models/experiments/regional_blur.pt`; paper section 6.12.
 - [x] **D4. Slower level-0 fields.** Mixed. 16 extra channels on a 512 px lattice bring the distance
   curve close to real and reduce repetition, but add speckled shallow flats and sharp-edged
   plateaus. Kept as `models/experiments/world_slow.pt`; `models/world.pt` stays the default.
@@ -50,7 +53,6 @@ of this list, as the paper and commits refer to them.
 
 Each is one short training run or less, with no new methods.
 
-- [ ] **C2b. Stronger input noise at level 1**, as in Ho et al. Level 2 with blur is done (C2 above).
 - [ ] **B1. Separate the pixel normalisation and R1 changes** in a refiner, with two short runs.
 - [ ] **B3c. R1 20 at level 0**, and R1 against slope gain in a refiner.
 - [ ] **E2. Ocean-aware refiners.** Retrain one refiner with a higher ocean share, and compare sea floors.

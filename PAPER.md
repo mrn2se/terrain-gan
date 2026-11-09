@@ -547,6 +547,35 @@ generated input as to real input (section 6.7). A rough level 0 thus hid the ref
 deficit, and fixing one requires fixing the other. Kept as `models/experiments/world_r1_80.pt`.
 Each weight is one run.
 
+### 6.12 Smoother level 0 with blurred-input refiners
+
+Sections 6.10 and 6.11 suggest fixing both errors at once: a smoother level 0, and refiners that
+add more detail. We trained the level-1 refiner with blurred input as well (`--coarse-blur 1.0`,
+20,000 steps), which raises its slopes on real input from 79% to 90% of real. Then we measured
+the cascade with both blurred-input refiners below the R1 = 40 and R1 = 80 level-0 models.
+
+| Generated, level 2 | Current | R1 40, current refiners | R1 40, blurred | R1 80, blurred | Real |
+|---|---|---|---|---|---|
+| Slope ratio | 1.04 | 0.95 | 1.15 | 1.03 | 1 |
+| Slope distance (°) | 0.09 | 0.32 | 0.29 | 0.15 | 0 |
+| Spectrum, middle / fine (log₁₀) | 0.01 / −0.01 | 0.13 / 0.02 | 0.16 / 0.08 | 0.00 / 0.02 | 0 |
+| Tile slope spread (°) | 2.14 | 2.38 | 2.31 | 1.95 | 2.05 |
+| Height distance (m) | 386 | 299 | 299 | 104 | 0 |
+| Land in closed depressions | 9.9% | 8.3% | 12.4% | 11.1% | 5.3% |
+| Block-mean RMS, level 1 against 0 (m) | 36 | 35 | 57 | 50 | – |
+
+![Cascade variants](docs/figures/cascade_variants.png)
+
+*Figure 14. 356 km tiles at level 2, at random places with 40–90% land in the level-0 map. Left:
+current models. Middle: R1 = 40 with the current refiners. Right: R1 = 80 with both blurred-input
+refiners. Columns show different places.*
+
+With R1 = 80 and both blurred refiners, most statistics at level 2 are the closest to real so far,
+including the height distribution, and the pictures show sharp ranges, plains and archipelagos.
+Three costs remain: more closed depressions, level 1 departing further from its input (50 against
+36 m), and the blurred, ridge-poor sea floor of the R1 = 80 level 0. Single runs throughout, and
+the slope distance of the current cascade, which is lower, partly reflects two errors cancelling.
+
 Combined with the blurred-input refiner of section 6.10, this smoother level 0 gives a level-2 slope
 ratio of 1.08, with too much power at middle wavelengths (+0.21 in log₁₀) and 10.2% of land in
 closed depressions. That is no better than the current refiner below the same level 0 (0.95 and
@@ -594,7 +623,7 @@ instead propose joint training for the same symptom.
   heightmaps poorly. The multi-scale sliced Wasserstein distance of Karras et al. (2018),
   computed directly on image patches, looks better suited.
 - Few controlled ablations. Several changes were made together, and most causes are hypotheses;
-  sections 6.8 to 6.11 are the exceptions.
+  sections 6.8 to 6.12 are the exceptions.
 - One training run per configuration, and all visual checks by the authors.
 - Section 6.7's statistics compare distributions, not structure, apart from the drainage
   check, which is limited by 118 km tiles. The memorisation check uses just 24 tiles and
