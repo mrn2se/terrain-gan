@@ -511,6 +511,40 @@ depressions increase. The model is kept as `models/experiments/local_blur.pt`, a
 stays the default. Blur looks worth keeping once level 0 is smoother, as the two errors would then
 no longer cancel. This is one run per setting, so differences of a few percent may be noise.
 
+### 6.11 Stronger R1 at level 0
+
+As level 0 is too rough, and that roughness passes down the cascade, we retrained it with an R1
+weight of 40 instead of 10, otherwise unchanged. A stronger penalty keeps the discriminator
+smoother, which might weaken its push towards fine detail. Numbers are for generated terrain at
+each level, with the current refiners below, from 512 tiles.
+
+| Generated terrain | R1 = 10 (current) | R1 = 40 | Real |
+|---|---|---|---|
+| Level 0 slope ratio | 1.20 | 1.13 | 1 |
+| Level 0 height distance (m) | 282 | 138 | 0 |
+| Level 1 slope ratio | 1.11 | 1.00 | 1 |
+| Level 2 slope ratio | 1.04 | 0.95 | 1 |
+| Level 2 land in closed depressions | 9.9% | 8.3% | 5.3% |
+| Level 2 drainage area exponent | −0.62 | −0.62 | −0.56 |
+| Pair similarity, median | 0.46 | 0.44 | 0.40 |
+| RMS difference at 965 km (m) | 2,131 | 2,044 | 1,891 |
+
+![R1 10 against 40](docs/figures/r1_world_compare.png)
+
+*Figure 13. Level 0, 7,600 × 3,800 km, seeds 1 to 4. Left: R1 = 10. Right: R1 = 40. The same
+seed gives an unrelated world with different weights.*
+
+Every statistic moves towards real, and the improvement carries through to the levels below.
+Visually, the stronger penalty gives broad lowland plains and wide shallow shelves, which the
+current model rarely makes, and fewer round, domed continents. But it also gives speckled
+shallow flats along some coasts, as in section 6.8, and at least one sharp escarpment. Kept as
+`models/experiments/world_r1_40.pt`. The R1 weight was not searched further, and this is one run.
+
+Combined with the blurred-input refiner of section 6.10, this smoother level 0 gives a level-2 slope
+ratio of 1.08, with too much power at middle wavelengths (+0.21 in log₁₀) and 10.2% of land in
+closed depressions. That is no better than the current refiner below the same level 0 (0.95 and
+8.3%), so blur does not yet pay off: the real-input gain is smaller than the excess it adds.
+
 ## 7. Discussion
 
 **Why a single scale looks homogeneous.** Our generators match the Spatial GAN setting:
@@ -553,7 +587,7 @@ instead propose joint training for the same symptom.
   heightmaps poorly. The multi-scale sliced Wasserstein distance of Karras et al. (2018),
   computed directly on image patches, looks better suited.
 - Few controlled ablations. Several changes were made together, and most causes are hypotheses;
-  sections 6.8 to 6.10 are the exceptions.
+  sections 6.8 to 6.11 are the exceptions.
 - One training run per configuration, and all visual checks by the authors.
 - Section 6.7's statistics compare distributions, not structure, apart from the drainage
   check, which is limited by 118 km tiles. The memorisation check uses just 24 tiles and
