@@ -576,6 +576,12 @@ Three costs remain: more closed depressions, level 1 departing further from its 
 36 m), and the blurred, ridge-poor sea floor of the R1 = 80 level 0. Single runs throughout, and
 the slope distance of the current cascade, which is lower, partly reflects two errors cancelling.
 
+An R1 = 60 level 0 does not fall between the other two. Its level-0 slope ratio is 1.15, as rough
+as R1 = 40, with large bumpy plateaus, and with both blurred refiners it reaches 1.12 at level 2,
+with 11.6% of land in closed depressions. Across 10, 40, 60 and 80, level-0 roughness thus does not
+fall steadily with R1 (1.20, 1.13, 1.15, 1.06), and differences between training runs may be as
+large as the effect of R1. Repeating runs with other seeds would be needed to separate them.
+
 Combined with the blurred-input refiner of section 6.10, this smoother level 0 gives a level-2 slope
 ratio of 1.08, with too much power at middle wavelengths (+0.21 in log₁₀) and 10.2% of land in
 closed depressions. That is no better than the current refiner below the same level 0 (0.95 and
