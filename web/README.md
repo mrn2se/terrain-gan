@@ -18,6 +18,13 @@ world model first and then each refiner:
 
     uv run --with onnx --with onnxscript python web/export_models.py --ckpt models/world.pt models/regional.pt models/local.pt
 
+Or export every model set listed in `models/sets.json` whose files exist, as GitHub Pages does.
+The page then shows a Models list with the experiments of [PAPER.md](../PAPER.md); the first set
+is the default and the one tested against PyTorch. A checkpoint shared by several sets is
+converted once:
+
+    uv run --with onnx --with onnxscript python web/export_models.py --sets models/sets.json
+
 ## Test
 
 Compares the page with PyTorch and checks the map in headless Chrome, served under a
@@ -35,7 +42,8 @@ repository, a GitHub Pages site can be opened by anyone with the link.
 
 ## Options
 
-Add to the page URL: `seed`, `lon`, `lat`, `res` (finest-level pixels per screen pixel), and
+Add to the page URL: `seed`, `lon`, `lat`, `res` (finest-level pixels per screen pixel), `set` (a
+model set name from `models/sets.json`), and
 `backend=wasm` or `backend=webgpu` to force a backend, and `chunk` (default 512) for the largest
 piece of a level rendered at once.
 

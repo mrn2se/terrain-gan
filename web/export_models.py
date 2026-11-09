@@ -2,10 +2,17 @@
 
 Usage, from the repository root:
     uv run --with onnx --with onnxscript python web/export_models.py --ckpt models/world.pt models/regional.pt models/local.pt
+or, for every model set of models/sets.json whose files exist (the page then offers a list):
+    uv run --with onnx --with onnxscript python web/export_models.py --sets models/sets.json
+
+The first set (or --ckpt) is written to models/manifest.json and used for the tests; each set
+also gets models/sets/<name>.json. A checkpoint shared by several sets is converted once.
 """
 
 import argparse
 import json
+import os
+import re
 import sys
 from pathlib import Path
 
@@ -72,35 +79,67 @@ def export(model, path):
     return layers
 
 
+def level_entry(model, file):
+    layers = export(model, ROOT / file)
+    level = dict(file=file, stride=model.stride, origin=model.origin, layers=layers)
+    if isinstance(model, Generator):
+        level.update(
+            kind="generator",
+            fine_ch=model.fine_ch,
+            coarse_ch=model.coarse_ch,
+            coarse_cells=model.coarse_cells,
+        )
+        if model.slow_ch:
+            level.update(slow_ch=model.slow_ch, slow_cells=model.slow_cells)
+    else:
+        level.update(kind="refiner", latent_ch=model.latent_ch)
+    return level
+
+
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--ckpt", nargs="+", required=True, help="world generator, then any refiners")
+    group = p.add_mutually_exclusive_group(required=True)
+    group.add_argument("--ckpt", nargs="+", help="world generator, then any refiners")
+    group.add_argument("--sets", help="JSON list of model sets, as models/sets.json")
     args = p.parse_args()
 
     device = "cpu"
-    cascade = load_cascade(args.ckpt, device)
     out_dir = ROOT / "models"
     out_dir.mkdir(exist_ok=True)
+    if args.ckpt:
+        sets = [dict(name="default", label="Default models", ckpt=args.ckpt)]
+        # A list left from an earlier --sets export would offer models that are not these.
+        (out_dir / "sets.json").unlink(missing_ok=True)
+    else:
+        sets = json.loads(Path(args.sets).read_text())
+        missing = [s["name"] for s in sets if not all(os.path.exists(path) for path in s["ckpt"])]
+        if missing:
+            print(f"skipped model sets with missing files: {', '.join(missing)}")
+        sets = [s for s in sets if s["name"] not in missing]
+        (out_dir / "sets").mkdir(exist_ok=True)
 
-    levels = []
-    for i, model in enumerate(cascade.models):
-        name = f"level{i}.onnx"
-        layers = export(model, out_dir / name)
-        level = dict(file=f"models/{name}", stride=model.stride, origin=model.origin, layers=layers)
-        if isinstance(model, Generator):
-            level.update(
-                kind="generator",
-                fine_ch=model.fine_ch,
-                coarse_ch=model.coarse_ch,
-                coarse_cells=model.coarse_cells,
-            )
-            if model.slow_ch:
-                level.update(slow_ch=model.slow_ch, slow_cells=model.slow_cells)
-        else:
-            level.update(kind="refiner", latent_ch=model.latent_ch)
-        levels.append(level)
-    manifest = dict(px_per_degree=cascade.px_per_degree, levels=levels)
-    (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=1))
+    converted = {}  # checkpoint path -> manifest level entry
+    listing = []
+    for index, model_set in enumerate(sets):
+        loaded = load_cascade(model_set["ckpt"], device)
+        levels = []
+        for path, model in zip(model_set["ckpt"], loaded.models):
+            if path not in converted:
+                if args.ckpt:
+                    file = f"models/level{len(converted)}.onnx"
+                else:  # named after the checkpoint, e.g. models/models_experiments_local_blur.onnx
+                    file = f"models/{re.sub(r'[^A-Za-z0-9]+', '_', Path(path).with_suffix('').as_posix())}.onnx"
+                converted[path] = level_entry(model, file)
+            levels.append(converted[path])
+        manifest = dict(px_per_degree=loaded.px_per_degree, levels=levels)
+        if index == 0:
+            (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=1))
+            cascade = loaded
+        if args.sets:
+            (out_dir / "sets" / f"{model_set['name']}.json").write_text(json.dumps(manifest, indent=1))
+            listing.append(dict(name=model_set["name"], label=model_set["label"]))
+    if args.sets:
+        (out_dir / "sets.json").write_text(json.dumps(listing, indent=1))
 
     # What the page must reproduce; compared by web/test/test.html.
     gen = cascade.models[0]
@@ -139,7 +178,7 @@ def main():
     test_dir = ROOT / "test"
     test_dir.mkdir(exist_ok=True)
     (test_dir / "reference.json").write_text(json.dumps(reference))
-    for path in sorted(out_dir.iterdir()):
+    for path in sorted(out_dir.glob("*.onnx")):
         print(f"{path.name}: {path.stat().st_size / 1e6:.2f} MB")
 
 

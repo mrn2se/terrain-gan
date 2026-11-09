@@ -39,7 +39,7 @@ jobs:
           uv run --no-project --python 3.12
           --index https://download.pytorch.org/whl/cpu
           --with torch==2.14.1 --with numpy --with pillow --with onnx --with onnxscript
-          python web/export_models.py --ckpt models/world.pt models/regional.pt models/local.pt
+          python web/export_models.py --sets models/sets.json
       - name: Check the page against PyTorch
         run: uv run --no-project --python 3.12 --with playwright python web/test/run_test.py
       - name: Collect the page

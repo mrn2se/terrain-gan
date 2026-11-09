@@ -5,7 +5,26 @@ const seedInput = document.getElementById("seed");
 const status = document.getElementById("status");
 seedInput.value = params.get("seed") || "0";
 
-const workerParams = new URLSearchParams({ backend: params.get("backend") || "", chunk: params.get("chunk") || "" });
+const setSelect = document.getElementById("set");
+const setName = params.get("set") || "";
+
+// The list of model sets exists only when the models were exported with --sets. Changing the
+// set reloads the page, as sets can have different numbers of levels and so zoom steps.
+fetch(new URL("../models/sets.json", import.meta.url))
+  .then((response) => (response.ok ? response.json() : []))
+  .catch(() => [])
+  .then((sets) => {
+    if (sets.length < 2) return;
+    for (const { name, label } of sets) setSelect.add(new Option(label, name, false, name === (setName || sets[0].name)));
+    setSelect.parentElement.hidden = false;
+    setSelect.addEventListener("change", () => {
+      const query = new URLSearchParams(location.search);
+      query.set("set", setSelect.value);
+      location.search = `?${query}`;
+    });
+  });
+
+const workerParams = new URLSearchParams({ backend: params.get("backend") || "", chunk: params.get("chunk") || "", set: setName });
 const worker = new Worker(new URL(`worker.js?${workerParams}`, import.meta.url), { type: "module" });
 const pending = new Map();
 let nextId = 0;
@@ -87,6 +106,7 @@ function startMap() {
   const updateUrl = () => {
     const [x, y] = view.getCenter();
     const query = new URLSearchParams({
+      ...(setName ? { set: setName } : {}),
       seed: seedInput.value,
       lon: (x / pxPerDegree).toFixed(3),
       lat: (y / pxPerDegree).toFixed(3),

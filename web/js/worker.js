@@ -80,7 +80,10 @@ try {
   const adapter = "gpu" in navigator ? await navigator.gpu.requestAdapter().catch(() => null) : null;
   gpuName = adapter?.info ? `${adapter.info.vendor} ${adapter.info.architecture} ${adapter.info.description}`.trim() : "";
   const useGpu = adapter && !adapter.info?.isFallbackAdapter;
-  terrain = await loadTerrain(ort, forced ? [forced] : useGpu ? ["webgpu", "wasm"] : ["wasm"], chunk);
+  // ?set=<name> picks a model set exported with --sets; names are checked by the page.
+  const set = query.get("set");
+  const manifest = set && /^[\w-]+$/.test(set) ? `models/sets/${set}.json` : "models/manifest.json";
+  terrain = await loadTerrain(ort, forced ? [forced] : useGpu ? ["webgpu", "wasm"] : ["wasm"], chunk, manifest);
   const levels = terrain.manifest.levels.length;
   // Finest-level pixels per screen pixel, one entry per zoom level. The furthest zoom is
   // 2x the coarsest model, because further out costs too much to compute on a CPU.

@@ -15,9 +15,10 @@ export function toMeters(x) {
 }
 
 // Fetches the manifest and models. Tries each execution provider until one works.
-export async function loadTerrain(ort, providers, chunk = DEFAULT_CHUNK) {
+// manifestPath is relative to the page, e.g. models/sets/<name>.json for another model set.
+export async function loadTerrain(ort, providers, chunk = DEFAULT_CHUNK, manifestPath = "models/manifest.json") {
   const base = new URL("../", import.meta.url);
-  const manifest = await (await fetch(new URL("models/manifest.json", base))).json();
+  const manifest = await (await fetch(new URL(manifestPath, base))).json();
   const buffers = await Promise.all(
     manifest.levels.map(async (level) => new Uint8Array(await (await fetch(new URL(level.file, base))).arrayBuffer())),
   );

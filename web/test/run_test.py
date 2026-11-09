@@ -108,6 +108,24 @@ def main():
         if overflow:
             print("FAIL page scrolls sideways")
             failed = True
+
+        # With models exported by --sets: choosing another set reloads the page and renders it.
+        sets_file = WEB / "models" / "sets.json"
+        sets = json.loads(sets_file.read_text()) if sets_file.exists() else []
+        if len(sets) > 1:
+            other = sets[-1]["name"]
+            page.wait_for_selector("#set option", state="attached", timeout=args.timeout * 1000)
+            with page.expect_navigation():
+                page.select_option("#set", other)
+            page.wait_for_function("window.terrainStats !== undefined || window.terrainError !== undefined",
+                                   timeout=args.timeout * 1000)
+            result = wait_tiles(page, args.timeout)
+            chosen = page.input_value("#set")
+            print(f"--- model set {other}:", json.dumps(result))
+            if chosen != other or "set=" + other not in page.url or "seed=3" not in page.url:
+                print(f"FAIL set list shows {chosen!r}, url {page.url}")
+                failed = True
+            failed |= "error" in result or "timeout" in result
         browser.close()
 
     for problem in sorted(set(problems)):
