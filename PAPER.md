@@ -594,6 +594,51 @@ ratio of 1.08, with too much power at middle wavelengths (+0.21 in log₁₀) an
 closed depressions. That is no better than the current refiner below the same level 0 (0.95 and
 8.3%), so blur does not yet pay off: the real-input gain is smaller than the excess it adds.
 
+### 6.13 Repeated runs and a single score
+
+Sections 6.11 and 6.12 rest on one run per R1 weight, except R1 = 80. We repeated the level-0
+runs at R1 = 10 and 40 from different random starts. To compare many model sets in one number
+per level, `measure.py` now also computes the multi-scale sliced Wasserstein distance (SWD) of
+Karras et al. (2018): 7×7 patches of a four-level Laplacian pyramid, compared through 512 random
+projections, and averaged over the three detail bands (×1000; lower is closer to real). Unlike
+Karras et al., both sets are normalised with the real set's statistics, so that a difference in
+roughness counts. Different real crops score 12, 11 and 31 at levels 0, 1 and 2, the floor for a
+perfect model; bicubic upscaling of real input scores 234 and 221 at levels 1 and 2.
+
+| Generated, 512 tiles | L0 slope ratio | L2 slope ratio | L2 height distance (m) | SWD L0 | SWD L1 | SWD L2 | L2 closed depressions |
+|---|---|---|---|---|---|---|---|
+| R1 10, run 1 (default) | 1.20 | 1.04 | 386 | 133 | 86 | 125 | 9.9% |
+| R1 10, run 2 | 1.08 | 0.92 | 148 | 92 | 95 | 128 | 7.1% |
+| R1 40, run 1 | 1.13 | 0.95 | 299 | 84 | 70 | 127 | 8.3% |
+| R1 40, run 2 | 1.42 | 1.14 | 296 | 174 | 85 | 110 | 8.3% |
+| R1 80, run 1 | 1.06 | 0.68 | 95 | 74 | 93 | 141 | 6.8% |
+| R1 80, run 2 | 0.98 | 0.56 | 209 | 32 | 136 | 182 | 6.8% |
+| R1 10, run 2, blurred refiners | 1.08 | 1.19 | 148 | 92 | 107 | 193 | 11.9% |
+| R1 40, run 2, blurred refiners | 1.42 | 1.53 | 287 | 174 | 145 | 275 | 12.8% |
+| R1 80, run 1, blurred refiners | 1.06 | 1.03 | 104 | 74 | 55 | 142 | 11.1% |
+| R1 80, run 2, blurred refiners | 0.98 | 0.84 | 200 | 32 | 65 | 109 | 11.1% |
+| Real (other crops) | 1 | 1 | 44 | 12 | 11 | 31 | 5.3% |
+
+Rows without "blurred" use the current refiners. The real crops of this table and of section 6.7
+differ, so values for the default differ slightly from there.
+
+![Repeated level-0 runs](docs/figures/r1_repeats.png)
+
+*Figure 15. Level 0, seeds 1 to 4, of the repeated runs. Left: R1 = 10. Right: R1 = 40.*
+
+Run-to-run spread at level 0 is large: slope ratios of 1.20 and 1.08 at R1 = 10, and 1.13 and
+1.42 at R1 = 40. Only R1 = 80 made level 0 smooth both times. So the trend of section 6.11 was
+mostly chance, apart from the strongest penalty. The refiners pass level 0's roughness on, and
+the blurred-input refiners only suit a smooth level 0. On real input they are clearly better
+(SWD at level 2: 70 against 115 for the current refiner), but on rough generated input they make
+things worse.
+
+The second R1 = 10 run is the most Earth-like world model so far by eye, with island arcs,
+trenches, rifts and coastal ranges (Figure 15, left), and with the current refiners it improves
+on the default in most statistics: height distance 148 against 386 m, 7.1% against 9.9% of land
+in closed depressions, and lower SWD at level 0. A practical recipe follows: train several level-0
+models, which costs about 3 hours each, and keep the one that measures best.
+
 ## 7. Discussion
 
 **Why a single scale looks homogeneous.** Our generators match the Spatial GAN setting:
@@ -633,11 +678,11 @@ instead propose joint training for the same symptom.
 - No FID or other standard score, and no human perceptual study. InfinityGAN and ALIS report
   FID variants (ScaleInv FID, ∞-FID) and InfinityGAN a user study too, so our results cannot be
   compared with theirs. FID's Inception features were trained on photographs and so may suit
-  heightmaps poorly. The multi-scale sliced Wasserstein distance of Karras et al. (2018),
-  computed directly on image patches, looks better suited.
+  heightmaps poorly. We use the multi-scale sliced Wasserstein distance of Karras et al. (2018)
+  instead (section 6.13), which is not comparable with other papers either.
 - Few controlled ablations. Several changes were made together, and most causes are hypotheses;
-  sections 6.8 to 6.12 are the exceptions.
-- One training run per configuration, and all visual checks by the authors.
+  sections 6.8 to 6.13 are the exceptions.
+- Mostly one training run per configuration (section 6.13 shows the spread between runs is large), and all visual checks by the authors.
 - Section 6.7's statistics compare distributions, not structure, apart from the drainage
   check, which is limited by 118 km tiles. The memorisation check uses just 24 tiles and
   only covers level 0.

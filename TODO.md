@@ -7,7 +7,7 @@ of this list, as the paper and commits refer to them.
 
 ## Done
 
-`measure.py` covers A1, A2, A3, A5, A6, A7, A8, C1 and F1; section 6.7 of the paper has the numbers.
+`measure.py` covers A1 to A8, C1 and F1; sections 6.7 and 6.13 of the paper have the numbers.
 
 - [x] **A1. Is the noise ignored?** No. Two renders of the same real input share only about 45% of
   their added detail. The latent field gives most of the variation, the per-layer noise little.
@@ -30,8 +30,13 @@ of this list, as the paper and commits refer to them.
   every level comes closer to real. Visually more plains, but speckled coastal flats. Kept as
   `models/experiments/world_r1_40.pt`.
   R1 80 smooths too much: mountains and ridges fade, and the refiners' own detail deficit shows.
+- [x] **B3c. Repeated level-0 runs.** R1 10 and 40 were run twice: the spread between runs
+  (1.20 and 1.08 at R1 10, 1.13 and 1.42 at R1 40) is as large as the effect of R1. Only R1 80 was
+  smooth both times. The second R1 10 run is the best world model so far (paper 6.13).
 - [x] **B4. Converged single-scale baseline.** Trained to 20,000 steps at 0.93 km per pixel: tiles far more
   alike than real, land and sea alternating every 100 km, grainy look. The cascade is clearly better.
+- [x] **A4. Sliced Wasserstein distance** per level in `measure.py`, with other real crops as
+  the floor and `--quick` for comparing model sets.
 - [x] **C1. Gap between real and generated input.** On generated input, slopes come out near the real
   level (ratio 1.0), against 0.77 on real input: two errors cancel, as level 0 is too rough.
 - [x] **C2. Blurred coarse input at level 2.** Slopes on real input rise from 77% to 92% of real, but
@@ -54,15 +59,16 @@ of this list, as the paper and commits refer to them.
 
 Each is one short training run or less, with no new methods.
 
+- [ ] **G6. Choose the default.** `models/experiments/world_r1_10b.pt` with the current refiners
+  is the best candidate by numbers and eye; switching replaces `models/world.pt`.
+- [ ] **B6. Best of several.** Train several level-0 models and keep the best by `measure.py`.
 - [ ] **B1. Separate the pixel normalisation and R1 changes** in a refiner, with two short runs.
-- [ ] **B3c. Repeat R1 40**, as R1 80 was repeated (smooth both times, 1.06 and 0.98).
 - [ ] **C4. Roughness that does not depend on level 0.** The refiners amplify small level-0
   differences (0.08 at level 0 became 0.19 at level 2). Training them on generated input (C3)
   or matching detail statistics per tile might decouple them.
 - [ ] **E2. Ocean-aware refiners.** Retrain one refiner with a higher ocean share, and compare sea floors.
 - [ ] **E4. 64 px crops at level 0.** Earth has only a few hundred independent 128 px crops.
 - [ ] **A9. Copying in refiners.** Extend `evaluate.py` beyond level 0, with more than 24 tiles.
-- [ ] **A4. Multi-scale sliced Wasserstein distance** (Karras et al.) as one summary score per level.
 
 ## Open ideas
 
