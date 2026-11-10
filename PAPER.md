@@ -16,7 +16,8 @@ land fraction (0.36 vs. 0.36) and height variation (686 vs. 665 m). Generated te
 is plausible, but lacks long rivers and continuous ridges, and our evaluation is
 limited: there is no FID score and no user study. A converged single-scale model trained
 for comparison repeats one look everywhere, confirming that the cascade, not training
-length, removes the homogeneity.
+length, removes the homogeneity. Repeated training runs of the world level differ about as
+much as changes to its training settings do, so we now keep the best of two runs as the default.
 
 ## 1. Introduction
 
@@ -235,6 +236,9 @@ faint ring shapes that may be related.
 *Figure 1. Worm-like artefacts from the first refiner run, about 3,800 km wide.*
 
 ## 6. Results
+
+Sections 6.1 to 6.12 use the first world model, now `models/experiments/world_r1_10a.pt`. Since
+section 6.13, `models/world.pt` is a second run with the same settings; the refiners are unchanged.
 
 ![Level 0 at step 20,000](docs/figures/world_level.png)
 
@@ -637,7 +641,9 @@ The second R1 = 10 run is the most Earth-like world model so far by eye, with is
 trenches, rifts and coastal ranges (Figure 15, left), and with the current refiners it improves
 on the default in most statistics: height distance 148 against 386 m, 7.1% against 9.9% of land
 in closed depressions, and lower SWD at level 0. A practical recipe follows: train several level-0
-models, which costs about 3 hours each, and keep the one that measures best.
+models, which costs about 3 hours each, and keep the one that measures best. We did so, and the
+second R1 = 10 run is now the default world model, `models/world.pt`; the first is kept as
+`models/experiments/world_r1_10a.pt`.
 
 ## 7. Discussion
 

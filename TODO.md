@@ -25,14 +25,14 @@ of this list, as the paper and commits refer to them.
 - [x] **A8. Repetition across worlds.** Random generated tile pairs are slightly more alike than
   real ones (median correlation 0.46 against 0.40), not enough to suggest collapse.
 - [x] **B2. Level 0 without pixel normalisation.** Less stable early on, and less bumpy, but rings and
-  round landmasses remain. Kept on branch `world-no-pixelnorm`; `models/world.pt` stays.
+  round landmasses remain. Kept on branch `world-no-pixelnorm`.
 - [x] **B3. Stronger R1 at level 0.** R1 40 instead of 10: level 0 slope ratio 1.20 → 1.13, and
   every level comes closer to real. Visually more plains, but speckled coastal flats. Kept as
   `models/experiments/world_r1_40.pt`.
   R1 80 smooths too much: mountains and ridges fade, and the refiners' own detail deficit shows.
 - [x] **B3c. Repeated level-0 runs.** R1 10 and 40 were run twice: the spread between runs
   (1.20 and 1.08 at R1 10, 1.13 and 1.42 at R1 40) is as large as the effect of R1. Only R1 80 was
-  smooth both times. The second R1 10 run is the best world model so far (paper 6.13).
+  smooth both times. The second R1 10 run is the best world model so far and the new default (paper 6.13).
 - [x] **B4. Converged single-scale baseline.** Trained to 20,000 steps at 0.93 km per pixel: tiles far more
   alike than real, land and sea alternating every 100 km, grainy look. The cascade is clearly better.
 - [x] **A4. Sliced Wasserstein distance** per level in `measure.py`, with other real crops as
@@ -48,9 +48,11 @@ of this list, as the paper and commits refer to them.
   R1 40, so run-to-run spread may rival the effect of R1.
 - [x] **D4. Slower level-0 fields.** Mixed. 16 extra channels on a 512 px lattice bring the distance
   curve close to real and reduce repetition, but add speckled shallow flats and sharp-edged
-  plateaus. Kept as `models/experiments/world_slow.pt`; `models/world.pt` stays the default.
+  plateaus. Kept as `models/experiments/world_slow.pt`.
 - [x] **F1. Classic baseline.** Fractal noise with the real spectrum: slopes and drainage much less
   realistic than the GAN at every level.
+- [x] **G6. New default world model.** `models/world.pt` is now the second R1 10 run; the first is
+  `models/experiments/world_r1_10a.pt`.
 - [x] **G3. Browser version.** `web/` runs all three levels and matches PyTorch in its tests.
 - [x] **G4. Publish the browser version.** On GitHub Pages under `preview/`. iPhones crashed after a
   tile or two; with 256 px chunks there, both CPU and WebGPU work on an iPhone.
@@ -59,8 +61,6 @@ of this list, as the paper and commits refer to them.
 
 Each is one short training run or less, with no new methods.
 
-- [ ] **G6. Choose the default.** `models/experiments/world_r1_10b.pt` with the current refiners
-  is the best candidate by numbers and eye; switching replaces `models/world.pt`.
 - [ ] **B6. Best of several.** Train several level-0 models and keep the best by `measure.py`.
 - [ ] **B1. Separate the pixel normalisation and R1 changes** in a refiner, with two short runs.
 - [ ] **C4. Roughness that does not depend on level 0.** The refiners amplify small level-0
