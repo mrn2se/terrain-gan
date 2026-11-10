@@ -1,4 +1,4 @@
-"""Measure the cascade against real terrain (TODO A1, A2, A3, A5, A6, A7, A8, C1 and F1).
+"""Measure the cascade against real terrain (TODO A1 to A8, C1 and F1).
 
 For every level, real crops are compared with:
   generated     the whole cascade down to this level, from random worlds (C1: on generated input)
@@ -13,6 +13,10 @@ refiner uses its noise. A7 compares block means of each generated level with the
 above at the same place. A6 compares how height differences grow with distance at level 0,
 for real Earth and for large generated areas, and A8 how alike random pairs of tiles are. A5 fills depressions and routes water downhill at the finest
 level: real rivers gather into few large ones, with drainage areas following a power law.
+A4 sums up each method in one number per level, the multi-scale sliced Wasserstein distance
+of Karras et al. (2018) between 7x7 patches of a Laplacian pyramid (lower is closer to real),
+averaged over the detail bands. "other real" are different real crops, the floor for a perfect model.
+--quick skips the slow checks (A1, A5, A6, A8), for comparing many model sets.
 
 Usage: uv run measure.py [--ckpt models/world.pt models/regional.pt models/local.pt] [--tiles 256]
 Writes <out>/stats_level<L>.png, <out>/variogram.png, <out>/hydrology.png and <out>/measure.json, and prints a summary.
@@ -39,7 +43,7 @@ from train_refiner import RefinerCrops  # noqa: E402
 SIZE = 128
 LEVEL_SCALE = 4
 NAMES = ("world", "regional", "local")
-COLOURS = {"real": "black", "generated": "tab:red", "refined real": "tab:blue", "bicubic": "tab:green", "bilinear": "tab:olive", "fBm noise": "tab:purple"}
+COLOURS = {"real": "black", "generated": "tab:red", "refined real": "tab:blue", "bicubic": "tab:green", "bilinear": "tab:olive", "fBm noise": "tab:purple", "other real": "tab:gray"}
 
 
 def real_pairs(npy, ppd, count, seed, min_land, level):
@@ -115,6 +119,45 @@ def w1(a, b):
     return float(np.abs(np.quantile(a, q) - np.quantile(b, q)).mean())
 
 
+def laplacian_pyramid(norm, levels=4):
+    """Band-pass images from fine to coarse, then the coarsest low-pass image."""
+    x = torch.from_numpy(np.ascontiguousarray(norm, dtype=np.float32))[:, None]
+    bands = []
+    for _ in range(levels - 1):
+        low = F.avg_pool2d(x, 2)
+        bands.append((x - F.interpolate(low, scale_factor=2, mode="bilinear", align_corners=False))[:, 0].numpy())
+        x = low
+    return bands + [x[:, 0].numpy()]
+
+
+def patches(images, rng, per_image=128, size=7):
+    n, h, w = images.shape
+    i = np.repeat(np.arange(n), per_image)
+    y = rng.integers(0, h - size + 1, i.size)
+    x = rng.integers(0, w - size + 1, i.size)
+    offsets = np.arange(size)
+    return images[i[:, None, None], y[:, None, None] + offsets[:, None], x[:, None, None] + offsets].reshape(i.size, -1)
+
+
+def sliced_wasserstein(meters, real, directions=512):
+    """A4: per pyramid level, fine to coarse, x 1000. Heights are first put on the models' scale.
+
+    Unlike Karras et al., descriptors of both sets are normalised with the real set's mean and
+    spread, so that a difference in roughness counts instead of being normalised away.
+    """
+    rng = np.random.default_rng(0)  # the same patches and directions for every method
+    out = []
+    for band, band_real in zip(laplacian_pyramid(meters_to_norm(meters)), laplacian_pyramid(meters_to_norm(real))):
+        a, b = patches(band, np.random.default_rng(1)), patches(band_real, np.random.default_rng(1))
+        mean, std = b.mean(0), b.std() + 1e-8
+        a, b = (a - mean) / std, (b - mean) / std
+        d = rng.standard_normal((a.shape[1], directions))
+        d /= np.linalg.norm(d, axis=0)
+        pa, pb = np.sort(a @ d, axis=0), np.sort(b @ d, axis=0)
+        out.append(float(np.abs(pa - pb).mean() * 1000))
+    return out
+
+
 def describe(meters, real, km_per_px, target=None):
     slope, slope_real = slopes(meters, km_per_px), slopes(real, km_per_px)
     spec, spec_real = spectrum(meters), spectrum(real)
@@ -132,6 +175,11 @@ def describe(meters, real, km_per_px, target=None):
         "spectrum_middle_log10": float(np.log10(spec[middle] / spec_real[middle]).mean()),
         "tile_slope_spread_deg": float(slope.mean((1, 2)).std()),
     }
+    swd = sliced_wasserstein(meters, real)
+    stats["swd_levels"] = swd
+    # The summary leaves out the coarsest, low-pass level: it repeats the height distribution,
+    # and methods that start from the real crop share it with the real tiles.
+    stats["swd"] = float(np.mean(swd[:-1]))
     if target is not None:
         stats["rmse_m"] = float(np.sqrt(((meters - target) ** 2).mean()))
     return stats, slope, spec
@@ -339,6 +387,7 @@ def main():
     p.add_argument("--hydro-tiles", type=int, default=128, help="tiles for the slower hydrology check")
     p.add_argument("--out", default="docs/figures")
     p.add_argument("--threads", type=int, default=8)
+    p.add_argument("--quick", action="store_true", help="skip the noise, hydrology, distance and similarity checks")
     args = p.parse_args()
 
     torch.set_num_threads(args.threads)
@@ -366,6 +415,8 @@ def main():
             methods["bicubic"] = (upscale(coarse, "bicubic"), real)
             methods["bilinear"] = (upscale(coarse, "bilinear"), real)
         methods["fBm noise"] = (fbm(real, km_per_px, rng), None)
+        # Other real crops: the floor any method can reach with this many tiles.
+        methods["other real"] = (real_pairs(npy, ppd, args.tiles, 2000 + level, args.min_land, level)[1], None)
 
         _, real_slope, real_spec = describe(real, real, km_per_px)
         curves = {"real": (real, real_slope, real_spec)}
@@ -373,14 +424,15 @@ def main():
         for name, (meters, target) in methods.items():
             entry[name], slope, spec = describe(meters, real, km_per_px, target)
             curves[name] = (meters, slope, spec)
-        if level == 0:
+        if level == 0 and not args.quick:
             entry["similarity"] = {name: pair_similarity(meters, np.random.default_rng(3)) for name, (meters, _, _) in curves.items()}
             entry["distance"] = distance_check(cascade, npy, km_per_px, out / "variogram.png")
         else:
             entry["generated"]["rms_vs_level_above_m"] = mismatch
-            entry["noise_use"] = noise_use(cascade.models[level], coarse, methods["refined real"][0])
+            if not args.quick:
+                entry["noise_use"] = noise_use(cascade.models[level], coarse, methods["refined real"][0])
         plot(level, km_per_px, curves, out / f"stats_level{level}.png")
-        if level == levels - 1 and km_per_px < 2:  # drainage needs fine pixels
+        if level == levels - 1 and km_per_px < 2 and not args.quick:  # drainage needs fine pixels
             hydro = {name: hydrology(tiles[: args.hydro_tiles]) for name, (tiles, _, _) in curves.items()}
             entry["hydrology"] = hydro
             plot_hydrology(hydro, km_per_px, out / "hydrology.png")
@@ -388,19 +440,20 @@ def main():
 
         print(f"\nlevel {level}, {km_per_px:.2f} km/px, {args.tiles} tiles")
         keys = ["land", "rmse_m", "height_w1_m", "mean_slope_deg", "slope_ratio", "slope_w1_deg",
-                "spectrum_middle_log10", "spectrum_fine_log10", "tile_slope_spread_deg"]  # fmt: skip
+                "spectrum_middle_log10", "spectrum_fine_log10", "tile_slope_spread_deg", "swd"]  # fmt: skip
         print(f"{'':14}" + "".join(f"{k[:13]:>14}" for k in keys))
         for name in ["real", *methods]:
             row = entry[name]
             print(f"{name:14}" + "".join(f"{row[k]:14.3f}" if k in row else f"{'-':>14}" for k in keys))
-        if level == 0:
+        if level == 0 and not args.quick:
             print("pair similarity:", {k: {m: round(v, 3) for m, v in x.items()} for k, x in entry["similarity"].items()})
             d = entry["distance"]
             print("RMS height difference by distance:", ", ".join(
                 f"{km:.0f} km: {r:.0f}/{g:.0f} m" for km, r, g in list(zip(d["km"], d["real"], d["generated"]))[::6]))  # fmt: skip
-        else:
+        elif level > 0:
             print(f"generated vs level above, block-mean RMS: {mismatch:.1f} m")
-            print("noise use:", {k: round(v, 3) for k, v in entry["noise_use"].items()})
+            if "noise_use" in entry:
+                print("noise use:", {k: round(v, 3) for k, v in entry["noise_use"].items()})
         if "hydrology" in entry:
             print("hydrology (land cells):")
             for name, h in entry["hydrology"].items():

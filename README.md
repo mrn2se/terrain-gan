@@ -150,12 +150,15 @@ It only handles a level-0 generator. Refiners are not supported.
 height, slope and spectrum distributions; the refiners against bicubic and bilinear
 upscaling and on real against generated input; whether the refiners use their noise; how
 height differences grow with distance; how alike tiles are; and, at the finest level,
-whether water drains. Fractal noise is included as a simple baseline. See section 6.7 of
-the paper for what the numbers mean.
+whether water drains. Fractal noise is included as a simple baseline, and other real crops
+show the floor a perfect model would reach. A sliced Wasserstein distance (`swd`) sums up the
+detail at each level in one number; lower is closer to real. See section 6.7 of the paper for
+what the numbers mean.
 
 ```sh
 uv run measure.py                     # all three levels, figures into docs/figures
 uv run measure.py --ckpt runs/world_slow/generator_0020000.pt --out /tmp/w   # one world model
+uv run measure.py --quick --ckpt models/experiments/world_r1_80.pt --out /tmp/q   # skip slow checks
 ```
 
 It loads the data the same way training does, so the first run builds the same cache.
