@@ -160,8 +160,9 @@ upscaling and on real against generated input; whether the refiners use their no
 height differences grow with distance; how alike tiles are; and, at the finest level,
 whether water drains. Fractal noise is included as a simple baseline, and other real crops
 show the floor a perfect model would reach. A sliced Wasserstein distance (`swd`) sums up the
-detail at each level in one number; lower is closer to real. See section 6.7 of the paper for
-what the numbers mean.
+detail at each level in one number; lower is closer to real. `detail_top10` is the share of
+fine detail in each tile's busiest tenth, low for an even texture. See sections 6.7, 6.13 and
+6.14 of the paper for what the numbers mean.
 
 ```sh
 uv run measure.py                     # all three levels, figures into docs/figures

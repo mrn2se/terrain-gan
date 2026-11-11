@@ -27,7 +27,8 @@ of this list, as the paper and commits refer to them.
   real ones (median correlation 0.46 against 0.40), not enough to suggest collapse.
 - [x] **A9. Copying in refiners.** `evaluate.py` now checks every level, refiners by their detail
   only. Over 64 tiles, generated tiles match real Earth no better than real crops do (paper 6.14).
-  It also showed that generated detail is spread evenly, while real detail is sparse.
+  The closest pairs suggested generated detail is spread too evenly, but `measure.py`'s new
+  `detail_top10` shows real and generated detail about equally concentrated.
 - [x] **B2. Level 0 without pixel normalisation.** Less stable early on, and less bumpy, but rings and
   round landmasses remain. Kept on branch `world-no-pixelnorm`.
 - [x] **B3. Stronger R1 at level 0.** R1 40 instead of 10: level 0 slope ratio 1.20 → 1.13, and
@@ -70,9 +71,6 @@ Each is one short training run or less, with no new methods.
 - [ ] **C4. Roughness that does not depend on level 0.** The refiners amplify small level-0
   differences (0.08 at level 0 became 0.19 at level 2). Training them on generated input (C3)
   or matching detail statistics per tile might decouple them.
-- [ ] **C5. Sparse detail.** Real refiner-level detail is concentrated in a few sharp features
-  on smooth ground; generated detail is an even texture (paper 6.14). Measure the spread of
-  local detail energy per tile, then try a loss or discriminator input that sees it.
 - [ ] **E2. Ocean-aware refiners.** Retrain one refiner with a higher ocean share, and compare sea floors.
 - [ ] **E4. 64 px crops at level 0.** Earth has only a few hundred independent 128 px crops.
 

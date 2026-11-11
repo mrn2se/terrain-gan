@@ -672,10 +672,21 @@ copy. At level 0, 8% of generated tiles match above 0.95 against 3% of real ones
 coasts with a similar orientation. At the refiner levels, the highest matches share one strong
 feature, such as a scarp, a ridge or a seamount, while the surrounding detail differs.
 
-Figure 16 also shows a difference that the statistics of section 6.7 average away. Generated
-detail covers the whole tile with an even texture, while real detail is sparse: smooth ground,
-broken by a few sharp features. The refiners have learned the amount of detail better than
-where to put it.
+In Figure 16, generated detail looks like an even texture, and real detail like smooth ground
+broken by one sharp feature. That impression is mostly selection: normalised correlation favours
+real crops in which one feature carries all the detail. To check it, `measure.py` now reports the
+share of each tile's detail energy (as defined above) that falls in its top 10% of 8 px blocks,
+averaged over 512 random tiles. An even texture gives a low share, and isolated features a high one.
+
+| Detail share in the top 10% of blocks | Level 1 | Level 2 |
+|---|---|---|
+| Real | 0.52 | 0.48 |
+| Generated (cascade) | 0.53 | 0.44 |
+| Refined real input | 0.60 | 0.52 |
+| fBm noise | 0.17 | 0.17 |
+
+Generated detail is about as concentrated as real detail, slightly more even at level 2, and far
+from the uniform texture of fractal noise.
 
 ## 7. Discussion
 

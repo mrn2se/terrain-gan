@@ -158,6 +158,22 @@ def sliced_wasserstein(meters, real, directions=512):
     return out
 
 
+def detail_concentration(meters, block=8, top=0.1):
+    """Share of a tile's fine detail energy in its top 10% of 8 px blocks, mean over tiles.
+
+    Detail is the tile minus its 4x4 block means upsampled, what a refiner adds. An even
+    texture gives a low share; a few sharp features on smooth ground give a high one.
+    """
+    x = torch.from_numpy(np.ascontiguousarray(meters, dtype=np.float32))[:, None]
+    low = F.interpolate(F.avg_pool2d(x, LEVEL_SCALE), scale_factor=LEVEL_SCALE, mode="bilinear", align_corners=False)
+    energy = F.avg_pool2d((x - low) ** 2, block).flatten(1)
+    energy, _ = energy.sort(1, descending=True)
+    keep = max(1, round(top * energy.shape[1]))
+    total = energy.sum(1)
+    share = energy[:, :keep].sum(1)[total > 0] / total[total > 0]
+    return float(share.mean())
+
+
 def describe(meters, real, km_per_px, target=None):
     slope, slope_real = slopes(meters, km_per_px), slopes(real, km_per_px)
     spec, spec_real = spectrum(meters), spectrum(real)
@@ -174,6 +190,7 @@ def describe(meters, real, km_per_px, target=None):
         "spectrum_fine_log10": float(np.log10(spec[fine] / spec_real[fine]).mean()),
         "spectrum_middle_log10": float(np.log10(spec[middle] / spec_real[middle]).mean()),
         "tile_slope_spread_deg": float(slope.mean((1, 2)).std()),
+        "detail_top10": detail_concentration(meters),
     }
     swd = sliced_wasserstein(meters, real)
     stats["swd_levels"] = swd
@@ -440,7 +457,7 @@ def main():
 
         print(f"\nlevel {level}, {km_per_px:.2f} km/px, {args.tiles} tiles")
         keys = ["land", "rmse_m", "height_w1_m", "mean_slope_deg", "slope_ratio", "slope_w1_deg",
-                "spectrum_middle_log10", "spectrum_fine_log10", "tile_slope_spread_deg", "swd"]  # fmt: skip
+                "spectrum_middle_log10", "spectrum_fine_log10", "tile_slope_spread_deg", "swd", "detail_top10"]  # fmt: skip
         print(f"{'':14}" + "".join(f"{k[:13]:>14}" for k in keys))
         for name in ["real", *methods]:
             row = entry[name]
