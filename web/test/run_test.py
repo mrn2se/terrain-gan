@@ -153,6 +153,13 @@ def main():
                 note = paper.text_content("#note")  # closed on phones, so not inner_text
                 print(f"--- map from paper link {href}:", json.dumps(result))
                 failed |= "error" in result or "timeout" in result or "Paper, section" not in note
+
+        legal = browser.new_page(viewport=dict(width=width, height=height))
+        watch(legal)
+        legal.goto(f"{base}/legal.html#privacy")
+        anchors = legal.evaluate("['legal-notice', 'disclaimer', 'privacy'].every((id) => document.getElementById(id))")
+        print("--- legal page anchors:", anchors)
+        failed |= not anchors or legal.evaluate("document.documentElement.scrollWidth > window.innerWidth")
         browser.close()
 
     for problem in sorted(set(problems)):

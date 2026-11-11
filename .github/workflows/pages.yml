@@ -8,6 +8,7 @@ on:
     paths:
       - "web/index.html"
       - "web/paper.html"
+      - "web/legal.html"
       - "PAPER.md"
       - "docs/figures/**"
       - "web/js/**"
@@ -48,8 +49,8 @@ jobs:
       - name: Collect the page
         run: |
           mkdir -p _site/preview
-          cp -r web/index.html web/paper.html web/PAPER.md web/docs web/js web/models _site/preview/
-          for page in index paper; do
+          cp -r web/index.html web/paper.html web/legal.html web/PAPER.md web/docs web/js web/models _site/preview/
+          for page in index paper legal; do
             sed -i 's|<meta charset="utf-8">|<meta charset="utf-8">\n<meta name="robots" content="noindex">|' _site/preview/$page.html
             grep -q 'name="robots"' _site/preview/$page.html
           done

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Legal Notice and Privacy</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { --bg: #fbfaf7; --fg: #1d2630; --muted: #5a6672; --line: #d8dde2; --accent: #0a5a9c; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #12171c; --fg: #dde3e8; --muted: #9aa7b2; --line: #2e3842; --accent: #7ab8ee; }
+  }
+  :root[data-theme="dark"] { --bg: #12171c; --fg: #dde3e8; --muted: #9aa7b2; --line: #2e3842; --accent: #7ab8ee; }
+  html { background: var(--bg); }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 system-ui, sans-serif; }
+  header { display: flex; gap: 16px; padding: 8px 16px; border-bottom: 1px solid var(--line); font-size: 14px; }
+  header a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  main { max-width: 720px; margin: 0 auto; padding: 8px 16px 64px; }
+  h1 { font-size: 1.7em; line-height: 1.2; margin: 1em 0 0.5em; }
+  h2 { margin-top: 1.8em; padding-top: 0.3em; border-top: 1px solid var(--line); }
+  h3 { margin: 1.3em 0 0.3em; font-size: 1.05em; }
+  h2, h3 { scroll-margin-top: 16px; }
+  a { color: var(--accent); }
+  code { font-size: 0.9em; }
+  nav.toc { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<header><a href="index.html">← Map</a><a href="paper.html">Paper</a></header>
+<main>
+<h1>Legal notice and privacy</h1>
+<nav class="toc"><a href="#legal-notice">Legal notice</a> · <a href="#disclaimer">Disclaimer</a> ·
+  <a href="#third-party">Data and third-party software</a> · <a href="#privacy">Privacy</a></nav>
+
+<h2 id="legal-notice">Legal notice</h2>
+<p>This site is a research demonstration, run privately and non-commercially by the GitHub user
+  <a href="https://github.com/mrn2se">mrn2se</a>. To get in touch, use the contact options on that GitHub profile.</p>
+
+<h2 id="disclaimer">Disclaimer</h2>
+<h3>The terrain</h3>
+<p>Every map on this site shows invented terrain, computed in your browser by a machine-learning model. The places,
+  heights and coordinates do not describe the real Earth, and nothing here may be used for navigation, planning or
+  any decision about real places.</p>
+<h3>The paper</h3>
+<p>The paper is a project report, written with the help of an AI assistant (Claude, by Anthropic). It is not peer
+  reviewed and may contain errors. Its results come from small experiments and are not guaranteed to hold elsewhere.</p>
+<h3>The software and models</h3>
+<p>The page, its models and the paper are provided as they are, without warranty of any kind, and to the extent
+  permitted by law without liability for any damage arising from their use. The models run on your device and can
+  use a lot of processor, graphics and memory capacity; on some devices the browser may slow down or close the page.</p>
+<h3>Links</h3>
+<p>This site links to other websites, mainly GitHub. Their operators are responsible for their content. Their
+  content was not found to be unlawful when the links were added, and links are removed if that changes.</p>
+
+<h2 id="third-party">Data and third-party software</h2>
+<p>The models were trained on <a href="https://doi.org/10.25921/fd45-gt74">ETOPO 2022</a>, a global relief model
+  from the NOAA National Centers for Environmental Information. NOAA does not endorse this project.</p>
+<p>The pages use, unchanged, <a href="https://openlayers.org/">OpenLayers</a> (BSD 2-Clause License) for the map,
+  <a href="https://onnxruntime.ai/">ONNX Runtime Web</a> (MIT License) to run the models, and
+  <a href="https://marked.js.org/">Marked</a> (MIT License) to display the paper. These belong to their authors, and
+  their license texts come with the files as published on npm.</p>
+
+<h2 id="privacy">Privacy</h2>
+<h3>What this site does</h3>
+<p>The site is static. It sets no cookies, has no analytics, advertising, accounts or forms, and stores nothing in
+  your browser beyond its usual cache. The terrain is computed in your browser tab, and nothing you do on the map is
+  sent anywhere. This project collects no personal data and receives no visitor logs.</p>
+<h3 id="github">Hosting by GitHub</h3>
+<p>The site is hosted on <a href="https://docs.github.com/en/pages/getting-started-with-github-pages/about-github-pages#data-collection">GitHub
+  Pages</a>, which logs and stores visitors' IP addresses for security purposes. GitHub is responsible for this,
+  and for any cookies or other data processing connected with the hosting. For how GitHub handles your data, and
+  for your rights and requests about it, see the
+  <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub General
+  Privacy Statement</a>.</p>
+<h3 id="jsdelivr">Libraries loaded from jsDelivr</h3>
+<p>The three libraries above are loaded from the public jsDelivr CDN (<code>cdn.jsdelivr.net</code>), so your
+  browser also contacts jsDelivr, which receives your IP address and the usual request data. See the
+  <a href="https://www.jsdelivr.com/terms/privacy-policy-jsdelivr-net">jsDelivr privacy policy</a>. This page
+  itself loads nothing from there.</p>
+<h3>Links to GitHub</h3>
+<p>Following a link to GitHub is a visit to GitHub under its own privacy statement.</p>
+</main>
+</body>
+</html>

@@ -31,6 +31,9 @@ on the map. In `models/sets.json`, each set's `section` names its paper section,
 to look for, and `view` gives the seed, position and zoom that a link from the paper opens. The
 Models list groups the sets by section and shows the note of the chosen one.
 
+`legal.html` holds the legal notice, disclaimer and privacy information, linked from the map
+and the paper. Keep its list of third-party libraries and external hosts in step with the pages.
+
 ## Test
 
 Compares the page with PyTorch and checks the map in headless Chrome, served under a
