@@ -418,7 +418,7 @@ least a given area, with the fitted slope.*
 the steepest neighbour (D8), with the sea and tile edges as outlets. Real land at level 2 has
 5.3% of its cells in closed depressions (mean fill 0.5 m). Generated land has 9.9% (3.6 m) and
 fractal noise 18.7% (8.0 m). For real river networks the share of cells draining at least
-area *a* falls roughly as *a*^−0.43 (Rodríguez-Iturbe and Rinaldo, 1997). Our real tiles give
+area *a* falls as a power law, with a typical exponent of −0.43 (Rodriguez-Iturbe et al., 2011). Our real tiles give
 −0.56, as 118 km tiles cut off large basins. Generated tiles give −0.62, refined real input
 −0.59, bicubic −0.63 and fractal noise −0.64. A steeper slope means water gathers into large
 rivers less. This makes the missing rivers of section 6.5 measurable: they are clearly better
@@ -855,17 +855,15 @@ Open questions are listed in [TODO.md](TODO.md).
 
 ## References
 
-Titles and first authors were checked against arXiv, Crossref or the papers. All were read in
-part for this report (abstracts and relevant sections, not cover to cover). Venues were also
-checked, except Ho et al.'s journal. Beckham and Pal, and Jetchev et al., are workshop papers
-cited through arXiv. Barnes et al. and Rodríguez-Iturbe and Rinaldo were added for the
-drainage check and cited from memory, without rereading.
+Every work listed was checked against arXiv, Crossref, the publisher or the paper itself, for
+title, authors, year and venue, and the passages cited here were read in the original. Beckham
+and Pal, and Jetchev et al., are workshop papers cited through arXiv.
 
-- Barnes, R., Lehman, C., Mulla, D. (2014). Priority-flood: An optimal depression-filling and watershed-labeling algorithm for digital elevation models. Computers & Geosciences.
+- Barnes, R., Lehman, C., Mulla, D. (2014). Priority-flood: An optimal depression-filling and watershed-labeling algorithm for digital elevation models. Computers & Geosciences 62, 117–127.
 - Beckham, C., Pal, C. (2017). A step towards procedural terrain generation with GANs. arXiv:1707.03383.
 - Bergmann, U., Jetchev, N., Vollgraf, R. (2017). Learning texture manifolds with the Periodic Spatial GAN. ICML.
 - Guérin, É., et al. (2017). Interactive example-based terrain authoring with conditional generative adversarial networks. ACM Transactions on Graphics.
-- Ho, J., et al. (2022). Cascaded diffusion models for high fidelity image generation. JMLR.
+- Ho, J., et al. (2022). Cascaded diffusion models for high fidelity image generation. Journal of Machine Learning Research 23(47), 1–33.
 - Isola, P., et al. (2017). Image-to-image translation with conditional adversarial networks. CVPR.
 - Jetchev, N., Bergmann, U., Vollgraf, R. (2016). Texture synthesis with spatial generative adversarial networks. arXiv:1611.08207.
 - Karras, T., et al. (2018). Progressive growing of GANs for improved quality, stability, and variation. ICLR.
@@ -873,5 +871,5 @@ drainage check and cited from memory, without rereading.
 - Lin, C. H., et al. (2022). InfinityGAN: Towards infinite-pixel image synthesis. ICLR.
 - Mescheder, L., Geiger, A., Nowozin, S. (2018). Which training methods for GANs do actually converge? ICML.
 - NOAA National Centers for Environmental Information (2022). ETOPO 2022 15 Arc-Second Global Relief Model. doi:10.25921/fd45-gt74. Accessed 1 November 2026.
-- Rodríguez-Iturbe, I., Rinaldo, A. (1997). Fractal River Basins: Chance and Self-Organization. Cambridge University Press.
+- Rodriguez-Iturbe, I., Caylor, K. K., Rinaldo, A. (2011). Metabolic principles of river basin organization. PNAS 108(29), 11751–11755.
 - Skorokhodov, I., Sotnikov, G., Elhoseiny, M. (2021). Aligning latent and image spaces to connect the unconnectable. ICCV.
