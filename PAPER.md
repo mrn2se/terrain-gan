@@ -17,7 +17,8 @@ is plausible, but lacks long rivers and continuous ridges, and our evaluation is
 limited: there is no FID score and no user study. A converged single-scale model trained
 for comparison repeats one look everywhere, confirming that the cascade, not training
 length, removes the homogeneity. Repeated training runs of the world level differ about as
-much as changes to its training settings do, so we now keep the best of two runs as the default.
+much as changes to its training settings do, and checkpoints within a run nearly as much, so we
+keep the best of several runs as the default; among four, no run was best on every measure.
 
 ## 1. Introduction
 
@@ -688,6 +689,62 @@ averaged over 512 random tiles. An even texture gives a low share, and isolated 
 Generated detail is about as concentrated as real detail, slightly more even at level 2, and far
 from the uniform texture of fractal noise.
 
+### 6.15 Best of four, and how noisy the scores are
+
+To test the recipe of section 6.13, we trained two more level-0 models at R1 = 10 (runs 3 and 4),
+four in all. First we checked how noisy the scores are. `measure.py --seed` draws a different
+sample of 512 generated tiles while keeping the real ones. Over five samples of the default world
+model, the level-0 slope ratio ranged from 1.08 to 1.13 and SWD from 92 to 123. The height
+distance ranged from 126 to 233 m. Through the cascade, level-1 SWD ranged from 77 to 107 and
+level-2 SWD from 128 to 141 over three samples. Single readings in the tables of sections 6.11 to
+6.13 therefore carry about ±10 in SWD, and several of their differences are within that noise.
+
+| Level 0, mean ± SD over samples | Slope ratio | SWD | Height distance (m) |
+|---|---|---|---|
+| Run 1 (5 samples) | 1.22 ± 0.01 | 131 ± 9 | 289 ± 33 |
+| Run 2, default (5) | 1.12 ± 0.02 | 110 ± 11 | 153 ± 45 |
+| Run 3 (5) | 1.10 ± 0.02 | 60 ± 7 | 99 ± 16 |
+| Run 4 (3) | 1.10 ± 0.01 | 94 ± 8 | 266 ± 6 |
+
+Within a run, checkpoints differ about as much as runs do. Level-0 SWD of the checkpoints at
+10,000 to 20,000 steps ranged from 116 to 140 in run 1, from 92 to 150 in run 2, from 51 to 138
+in run 3 and from 52 to 124 in run 4. Run 4 scored 52 to 64 between 12,000 and 18,000 steps
+and 83 at the end. Checkpoints are free, so they add candidates at no training cost.
+
+| Cascade, current refiners | L2 slope ratio | L2 height distance (m) | SWD L0 | SWD L1 | SWD L2 | L2 closed depressions |
+|---|---|---|---|---|---|---|
+| Run 1 | 1.04 | 386 | 133 | 86 | 125 | 9.9% |
+| Run 2, default | 0.92 | 148 | 92 | 95 | 128 | 7.1% |
+| Run 3 | 0.78 | 238 | 61 | 54 | 118 | 8.0% |
+| Run 4 | 0.82 | 253 | 83 | 43 | 76 | 10.2% |
+| Run 3, blurred-input level 1 | 0.90 | 226 | 61 | 54 | 83 | 10.4% |
+| Real (other crops) | 1.02 | 44 | 12 | 11 | 31 | 6.0% |
+
+One sample each; rows 1 and 2 are from section 6.13.
+
+![Four level-0 runs](docs/figures/r1_10_four_runs.png)
+
+*Figure 17. Level 0, seeds 1 to 4, of the four R1 = 10 runs, runs 1 to 4 from left to right.*
+
+![Level 2 below runs 2 and 3](docs/figures/run3_level2.png)
+
+*Figure 18. 356 km at level 2, at places with 40–90% land in each world's level 0. Left: run 2,
+the default. Middle: run 3. Right: run 3 with the blurred-input regional refiner.*
+
+Runs 3 and 4 score better than the default at levels 0 and 1, and run 4 also at level 2, which
+reaches the best SWD of any set so far (76). But both are smoother at level 2 (slope ratios 0.78
+and 0.82), they lose the height distribution, and they have more closed depressions. In Figure 18,
+run 3 gives broad, flat lowlands and shelves with few mountains, where the default has more relief.
+The blurred-input regional refiner restores the slopes (0.90) and lowers level-2 SWD to 83, but adds
+pits, as it did in section 6.12. Run 3's level 0 (Figure 17) has the most plains and continental
+shelves, but some round mountain domes.
+
+So no run wins on every measure, and the default stays. A smoother level 0 again exposes the
+refiners' detail deficit, and the score of one level does not predict the next: level-0 SWD
+ranked the runs 3, 4, 2, 1, but level-2 slope ranked them 1, 2, 4, 3. Choosing the best of several
+needs the whole cascade measured, with several tile samples, and a decision on which measures
+matter most. Each candidate costs about 12 minutes of CPU time to measure, against 3 hours of training.
+
 ## 7. Discussion
 
 **Why a single scale looks homogeneous.** Our generators match the Spatial GAN setting:
@@ -731,7 +788,9 @@ instead propose joint training for the same symptom.
   instead (section 6.13), which is not comparable with other papers either.
 - Few controlled ablations. Several changes were made together, and most causes are hypotheses;
   sections 6.8 to 6.13 are the exceptions.
-- Mostly one training run per configuration (section 6.13 shows the spread between runs is large), and all visual checks by the authors.
+- Mostly one training run per configuration (sections 6.13 and 6.15 show the spread between runs is large), and all visual checks by the authors.
+- Most scores come from one sample of 512 generated tiles, which carries about ±10 in SWD and
+  ±0.02 in slope ratio (section 6.15).
 - Section 6.7's statistics compare distributions, not structure, apart from the drainage
   check, which is limited by 118 km tiles. The memorisation check uses 64 tiles per level and
   compares whole tiles, so it would miss copying of features smaller than 30 km.

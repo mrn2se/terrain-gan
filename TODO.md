@@ -56,6 +56,11 @@ of this list, as the paper and commits refer to them.
   plateaus. Kept as `models/experiments/world_slow.pt`.
 - [x] **F1. Classic baseline.** Fractal noise with the real spectrum: slopes and drainage much less
   realistic than the GAN at every level.
+- [x] **B6. Best of several.** Two more R1 10 runs, four in all (paper 6.15). Run 3 has the best
+  level 0 (SWD 60 against 110), run 4 the best level-2 SWD so far (76), but both make level 2
+  too smooth and add closed depressions, so the default stays. Checkpoints within a run vary
+  about as much as runs, and one 512-tile sample carries about ±10 in SWD.
+  `models/experiments/world_r1_10c.pt` and `world_r1_10d.pt`.
 - [x] **G6. New default world model.** `models/world.pt` is now the second R1 10 run; the first is
   `models/experiments/world_r1_10a.pt`.
 - [x] **G3. Browser version.** `web/` runs all three levels and matches PyTorch in its tests.
@@ -66,7 +71,9 @@ of this list, as the paper and commits refer to them.
 
 Each is one short training run or less, with no new methods.
 
-- [ ] **B6. Best of several.** Train several level-0 models and keep the best by `measure.py`.
+- [ ] **B6b. Pick by the whole cascade.** Measure the 12,000 to 18,000 step checkpoints of
+  runs 3 and 4 through both refiners, over several tile samples (`measure.py --seed`). Decide
+  which measures matter most: no run of B6 won on all of them.
 - [ ] **B1. Separate the pixel normalisation and R1 changes** in a refiner, with two short runs.
 - [ ] **C4. Roughness that does not depend on level 0.** The refiners amplify small level-0
   differences (0.08 at level 0 became 0.19 at level 2). Training them on generated input (C3)

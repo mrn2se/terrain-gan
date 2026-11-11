@@ -1,6 +1,9 @@
 [
   {"name": "default", "label": "Default models (world: R1 10, run 2)", "ckpt": ["models/world.pt", "models/regional.pt", "models/local.pt"]},
   {"name": "old_default", "label": "Previous default world (R1 10, run 1), default refiners (6.1-6.12)", "ckpt": ["models/experiments/world_r1_10a.pt", "models/regional.pt", "models/local.pt"]},
+  {"name": "r1_10c", "label": "R1 10 world, run 3, default refiners (6.15)", "ckpt": ["models/experiments/world_r1_10c.pt", "models/regional.pt", "models/local.pt"]},
+  {"name": "r1_10c_regblur", "label": "R1 10 world, run 3, blurred-input regional refiner (6.15)", "ckpt": ["models/experiments/world_r1_10c.pt", "models/experiments/regional_blur.pt", "models/local.pt"]},
+  {"name": "r1_10d", "label": "R1 10 world, run 4, default refiners (6.15)", "ckpt": ["models/experiments/world_r1_10d.pt", "models/regional.pt", "models/local.pt"]},
   {"name": "r1_40b", "label": "R1 40 world, run 2, default refiners (6.13)", "ckpt": ["models/experiments/world_r1_40b.pt", "models/regional.pt", "models/local.pt"]},
   {"name": "r1_80_blur", "label": "R1 80 world, blurred-input refiners (paper 6.12)", "ckpt": ["models/experiments/world_r1_80.pt", "models/experiments/regional_blur.pt", "models/experiments/local_blur.pt"]},
   {"name": "r1_80b_blur", "label": "R1 80 world, run 2, blurred-input refiners (6.12)", "ckpt": ["models/experiments/world_r1_80b.pt", "models/experiments/regional_blur.pt", "models/experiments/local_blur.pt"]},
