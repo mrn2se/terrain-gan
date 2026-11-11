@@ -142,7 +142,15 @@ uv run evaluate.py --ckpt models/world.pt \
     --npy cache/ETOPO_2022_v1_30s_N90W180_bed_x16.npy --closest closest.png
 ```
 
-It only handles a level-0 generator. Refiners are not supported.
+For a refiner, pass the whole cascade down to it and the raster at its resolution. Its tiles
+are compared by their detail only, as their overall shape comes from the level above:
+
+```sh
+uv run evaluate.py --ckpt models/world.pt models/regional.pt models/local.pt \
+    --npy cache/ETOPO_2022_v1_30s_N90W180_bed.npy --count 64 --device cpu --closest closest.png
+```
+
+`--size 32` checks smaller tiles. Level 2 takes about 30 minutes for 64 tiles on the CPU.
 
 ## Terrain statistics
 

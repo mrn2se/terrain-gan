@@ -8,6 +8,7 @@ of this list, as the paper and commits refer to them.
 ## Done
 
 `measure.py` covers A1 to A8, C1 and F1; sections 6.7 and 6.13 of the paper have the numbers.
+`evaluate.py` covers A9 (section 6.14).
 
 - [x] **A1. Is the noise ignored?** No. Two renders of the same real input share only about 45% of
   their added detail. The latent field gives most of the variation, the per-layer noise little.
@@ -24,6 +25,9 @@ of this list, as the paper and commits refer to them.
   level above.
 - [x] **A8. Repetition across worlds.** Random generated tile pairs are slightly more alike than
   real ones (median correlation 0.46 against 0.40), not enough to suggest collapse.
+- [x] **A9. Copying in refiners.** `evaluate.py` now checks every level, refiners by their detail
+  only. Over 64 tiles, generated tiles match real Earth no better than real crops do (paper 6.14).
+  It also showed that generated detail is spread evenly, while real detail is sparse.
 - [x] **B2. Level 0 without pixel normalisation.** Less stable early on, and less bumpy, but rings and
   round landmasses remain. Kept on branch `world-no-pixelnorm`.
 - [x] **B3. Stronger R1 at level 0.** R1 40 instead of 10: level 0 slope ratio 1.20 → 1.13, and
@@ -66,9 +70,11 @@ Each is one short training run or less, with no new methods.
 - [ ] **C4. Roughness that does not depend on level 0.** The refiners amplify small level-0
   differences (0.08 at level 0 became 0.19 at level 2). Training them on generated input (C3)
   or matching detail statistics per tile might decouple them.
+- [ ] **C5. Sparse detail.** Real refiner-level detail is concentrated in a few sharp features
+  on smooth ground; generated detail is an even texture (paper 6.14). Measure the spread of
+  local detail energy per tile, then try a loss or discriminator input that sees it.
 - [ ] **E2. Ocean-aware refiners.** Retrain one refiner with a higher ocean share, and compare sea floors.
 - [ ] **E4. 64 px crops at level 0.** Earth has only a few hundred independent 128 px crops.
-- [ ] **A9. Copying in refiners.** Extend `evaluate.py` beyond level 0, with more than 24 tiles.
 
 ## Open ideas
 

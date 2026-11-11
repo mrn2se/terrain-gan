@@ -303,7 +303,7 @@ the same with 24 real crops, excluding their own neighbourhoods.
 Medians agree. The upper tail is slightly higher for generated tiles, but 12% and 4% are
 about three tiles and one. The six closest pairs, inspected visually, were different
 terrain sharing a similar coast orientation, not copies. This check compares overall shape
-on small samples. It was not run on refiners, where data is much more plentiful.
+on small samples. Section 6.14 repeats it with more tiles, for the current world model and both refiners.
 
 ### 6.4 Refiner detail
 
@@ -645,6 +645,38 @@ models, which costs about 3 hours each, and keep the one that measures best. We 
 second R1 = 10 run is now the default world model, `models/world.pt`; the first is kept as
 `models/experiments/world_r1_10a.pt`.
 
+### 6.14 Memorisation at every level
+
+We repeated the check of section 6.3 with 64 tiles per set, for the current world model and
+both refiners (`evaluate.py`, which now takes a whole cascade). A refiner's tile takes its
+overall shape from the level above, so at levels 1 and 2 we compared detail only: each tile
+minus its 4×4 block means, upsampled bilinearly, which is what the refiner adds. Earth's
+latitude bands were filtered in the same way. A refiner that copied training crops would
+reproduce their detail and score near 1. We also used 32 px tiles, in case copying is local.
+
+| Level, tile size | Generated median | Generated highest | Real median | Real highest |
+|---|---|---|---|---|
+| 0, 128 px (1,900 km), whole tile | 0.816 | 0.976 | 0.811 | 0.962 |
+| 1, 128 px (475 km), detail | 0.211 | 0.621 | 0.232 | 0.547 |
+| 1, 32 px (119 km), detail | 0.467 | 0.797 | 0.503 | 0.916 |
+| 2, 128 px (119 km), detail | 0.236 | 0.665 | 0.234 | 0.561 |
+| 2, 32 px (30 km), detail | 0.525 | 0.884 | 0.523 | 0.883 |
+
+![Closest generated and real tiles](docs/figures/copy_check.png)
+
+*Figure 16. The six closest pairs per level, generated on the left of each pair. Left to right:
+level 0, then the detail of levels 1 and 2, each tile scaled to the same contrast.*
+
+Generated and real crops find equally good matches at every level, and no tile comes near a
+copy. At level 0, 8% of generated tiles match above 0.95 against 3% of real ones, as before:
+coasts with a similar orientation. At the refiner levels, the highest matches share one strong
+feature, such as a scarp, a ridge or a seamount, while the surrounding detail differs.
+
+Figure 16 also shows a difference that the statistics of section 6.7 average away. Generated
+detail covers the whole tile with an even texture, while real detail is sparse: smooth ground,
+broken by a few sharp features. The refiners have learned the amount of detail better than
+where to put it.
+
 ## 7. Discussion
 
 **Why a single scale looks homogeneous.** Our generators match the Spatial GAN setting:
@@ -690,8 +722,8 @@ instead propose joint training for the same symptom.
   sections 6.8 to 6.13 are the exceptions.
 - Mostly one training run per configuration (section 6.13 shows the spread between runs is large), and all visual checks by the authors.
 - Section 6.7's statistics compare distributions, not structure, apart from the drainage
-  check, which is limited by 118 km tiles. The memorisation check uses just 24 tiles and
-  only covers level 0.
+  check, which is limited by 118 km tiles. The memorisation check uses 64 tiles per level and
+  compares whole tiles, so it would miss copying of features smaller than 30 km.
 - Training stopped at 20,000 steps per level. Longer runs were not explored.
 - Figures come from a few seeds and positions, chosen to include land.
 
