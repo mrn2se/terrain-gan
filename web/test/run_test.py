@@ -126,6 +126,33 @@ def main():
                 print(f"FAIL set list shows {chosen!r}, url {page.url}")
                 failed = True
             failed |= "error" in result or "timeout" in result
+
+        # The paper page, with the paper copied by export_models.py --sets.
+        if (WEB / "PAPER.md").exists():
+            paper = browser.new_page(viewport=dict(width=width, height=height))
+            watch(paper)
+            paper.goto(f"{base}/paper.html")
+            paper.wait_for_function("window.paperReady !== undefined", timeout=args.timeout * 1000)
+            ready = paper.evaluate("window.paperReady")
+            print("--- paper:", json.dumps(ready))
+            wanted_links = sum(1 for s in sets if s.get("section"))
+            if "error" in ready or ready["headings"] < 10 or ready["mapLinks"] != wanted_links:
+                print(f"FAIL paper page, expected {wanted_links} map links")
+                failed = True
+            if paper.evaluate("document.documentElement.scrollWidth > window.innerWidth"):
+                print("FAIL paper page scrolls sideways")
+                failed = True
+            if len(sets) > 1:  # a link from the paper opens its set at the suggested view
+                first = paper.locator(".onmap a").first
+                href = first.get_attribute("href")
+                with paper.expect_navigation():
+                    first.click()
+                paper.wait_for_function("window.terrainStats !== undefined || window.terrainError !== undefined",
+                                        timeout=args.timeout * 1000)
+                result = wait_tiles(paper, args.timeout)
+                note = paper.text_content("#note")  # closed on phones, so not inner_text
+                print(f"--- map from paper link {href}:", json.dumps(result))
+                failed |= "error" in result or "timeout" in result or "Paper, section" not in note
         browser.close()
 
     for problem in sorted(set(problems)):

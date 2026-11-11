@@ -227,7 +227,9 @@ def main():
                 name = name if name in names else sets[0]["name"]
                 renderer = renderer_for(name)
                 options = "".join(
-                    f'<option value="{s["name"]}"{" selected" if s["name"] == name else ""}>{html.escape(s["label"])}</option>' for s in sets
+                    f'<option value="{s["name"]}"{" selected" if s["name"] == name else ""} title="{html.escape(s.get("note", ""))}">'
+                    f'{html.escape(("§" + s["section"] + " ") if s.get("section") else "")}{html.escape(s["label"])}</option>'
+                    for s in sets
                 )
                 page = PAGE % dict(
                     ppd=renderer.ppd, resolutions=renderer.resolutions, tile=TILE, set=json.dumps(name),

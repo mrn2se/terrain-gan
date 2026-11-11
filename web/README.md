@@ -25,6 +25,12 @@ converted once:
 
     uv run --with onnx --with onnxscript python web/export_models.py --sets models/sets.json
 
+With `--sets` it also copies [PAPER.md](../PAPER.md) and its figures next to the page, for
+`paper.html`: the paper, with links under each section that open the model sets it discusses
+on the map. In `models/sets.json`, each set's `section` names its paper section, `note` says what
+to look for, and `view` gives the seed, position and zoom that a link from the paper opens. The
+Models list groups the sets by section and shows the note of the chosen one.
+
 ## Test
 
 Compares the page with PyTorch and checks the map in headless Chrome, served under a
@@ -44,7 +50,8 @@ repository, a GitHub Pages site can be opened by anyone with the link.
 
 Add to the page URL: `seed`, `lon`, `lat`, `res` (finest-level pixels per screen pixel), `set` (a
 model set name from `models/sets.json`), and
-`backend=wasm` or `backend=webgpu` to force a backend, and `chunk` (default 512) for the largest
+`backend=wasm` or `backend=webgpu` to force a backend. With `set` but without `lon` and `lat`, the
+page starts at that set's suggested view, and `chunk` (default 512) for the largest
 piece of a level rendered at once.
 
 ## iPhone and iPad

@@ -7,12 +7,15 @@ or, for every model set of models/sets.json whose files exist (the page then off
 
 The first set (or --ckpt) is written to models/manifest.json and used for the tests; each set
 also gets models/sets/<name>.json. A checkpoint shared by several sets is converted once.
+With --sets, the paper (PAPER.md and docs/figures) is copied next to the page as well, for
+web/paper.html, and each set's paper section, note and starting view go into models/sets.json.
 """
 
 import argparse
 import json
 import os
 import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -96,6 +99,24 @@ def level_entry(model, file):
     return level
 
 
+def section_titles(paper):
+    """Paper section number -> title, from headings such as "### 6.12 Smoother level 0"."""
+    titles = {}
+    for line in paper.read_text().splitlines():
+        match = re.match(r"#{2,3} (\d+(?:\.\d+)?)\.? (.+)", line)
+        if match:
+            titles[match.group(1)] = match.group(2)
+    return titles
+
+
+def copy_paper(out):
+    """The paper and its figures, for web/paper.html."""
+    repo = ROOT.parent
+    shutil.copy(repo / "PAPER.md", out / "PAPER.md")
+    shutil.copytree(repo / "docs" / "figures", out / "docs" / "figures", dirs_exist_ok=True,
+                    ignore=shutil.ignore_patterns("*.json"))
+
+
 def main():
     p = argparse.ArgumentParser()
     group = p.add_mutually_exclusive_group(required=True)
@@ -117,6 +138,7 @@ def main():
             print(f"skipped model sets with missing files: {', '.join(missing)}")
         sets = [s for s in sets if s["name"] not in missing]
         (out_dir / "sets").mkdir(exist_ok=True)
+        titles = section_titles(ROOT.parent / "PAPER.md")
 
     converted = {}  # checkpoint path -> manifest level entry
     listing = []
@@ -137,9 +159,16 @@ def main():
             cascade = loaded
         if args.sets:
             (out_dir / "sets" / f"{model_set['name']}.json").write_text(json.dumps(manifest, indent=1))
-            listing.append(dict(name=model_set["name"], label=model_set["label"]))
+            entry = dict(name=model_set["name"], label=model_set["label"])
+            for key in ("section", "note", "view"):
+                if key in model_set:
+                    entry[key] = model_set[key]
+            if "section" in model_set:
+                entry["title"] = titles.get(model_set["section"], "")
+            listing.append(entry)
     if args.sets:
-        (out_dir / "sets.json").write_text(json.dumps(listing, indent=1))
+        (out_dir / "sets.json").write_text(json.dumps(listing, indent=1, ensure_ascii=False))
+        copy_paper(ROOT)
 
     # What the page must reproduce; compared by web/test/test.html.
     gen = cascade.models[0]

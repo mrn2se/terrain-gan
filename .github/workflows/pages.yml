@@ -7,6 +7,9 @@ on:
     branches: [master]
     paths:
       - "web/index.html"
+      - "web/paper.html"
+      - "PAPER.md"
+      - "docs/figures/**"
       - "web/js/**"
       - "web/export_models.py"
       - "web/test/**"
@@ -45,9 +48,11 @@ jobs:
       - name: Collect the page
         run: |
           mkdir -p _site/preview
-          cp -r web/index.html web/js web/models _site/preview/
-          sed -i 's|<meta charset="utf-8">|<meta charset="utf-8">\n<meta name="robots" content="noindex">|' _site/preview/index.html
-          grep -q 'name="robots"' _site/preview/index.html
+          cp -r web/index.html web/paper.html web/PAPER.md web/docs web/js web/models _site/preview/
+          for page in index paper; do
+            sed -i 's|<meta charset="utf-8">|<meta charset="utf-8">\n<meta name="robots" content="noindex">|' _site/preview/$page.html
+            grep -q 'name="robots"' _site/preview/$page.html
+          done
           find _site -type f
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

@@ -10,19 +10,50 @@ const setName = params.get("set") || "";
 
 // The list of model sets exists only when the models were exported with --sets. Changing the
 // set reloads the page, as sets can have different numbers of levels and so zoom steps.
-fetch(new URL("../models/sets.json", import.meta.url))
+const setsLoaded = fetch(new URL("../models/sets.json", import.meta.url))
   .then((response) => (response.ok ? response.json() : []))
   .catch(() => [])
   .then((sets) => {
-    if (sets.length < 2) return;
-    for (const { name, label } of sets) setSelect.add(new Option(label, name, false, name === (setName || sets[0].name)));
+    const current = sets.find(({ name }) => name === setName) || sets[0];
+    if (sets.length < 2) return current;
+    // One group per paper section, in the order of sets.json.
+    const groups = new Map();
+    for (const set of sets) {
+      const key = set.section ? `§${set.section} ${set.title || ""}`.trim() : "Models";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(set);
+    }
+    for (const [key, members] of groups) {
+      const group = document.createElement("optgroup");
+      group.label = key;
+      for (const { name, label } of members) group.append(new Option(label, name, false, name === current.name));
+      setSelect.append(group);
+    }
     setSelect.parentElement.hidden = false;
+    showNote(current);
     setSelect.addEventListener("change", () => {
       const query = new URLSearchParams(location.search);
       query.set("set", setSelect.value);
       location.search = `?${query}`;
     });
+    return current;
   });
+
+function showNote(set) {
+  const note = document.getElementById("note");
+  if (!set || !set.note) return;
+  const text = document.getElementById("note-text");
+  text.textContent = `${set.note} `;
+  if (set.section) {
+    const link = document.createElement("a");
+    link.href = `paper.html#s${set.section.replace(".", "-")}`;
+    link.textContent = `Paper, section ${set.section} →`;
+    text.append(link);
+  }
+  // Closed on phones, where it would cover much of the map.
+  note.open = !matchMedia("(max-width: 600px)").matches;
+  note.hidden = false;
+}
 
 const workerParams = new URLSearchParams({ backend: params.get("backend") || "", chunk: params.get("chunk") || "", set: setName });
 const worker = new Worker(new URL(`worker.js?${workerParams}`, import.meta.url), { type: "module" });
@@ -41,10 +72,10 @@ function showStatus() {
 }
 
 worker.onerror = (event) => fail(event.message || "The worker could not start.");
-worker.onmessage = ({ data }) => {
+worker.onmessage = async ({ data }) => {
   if (data.type === "ready") {
     info = data;
-    startMap();
+    startMap(await setsLoaded);
     showStatus();
   } else if (data.type === "failed") {
     fail(data.error);
@@ -77,8 +108,12 @@ function fail(message) {
   window.terrainError = message;
 }
 
-function startMap() {
+function startMap(set) {
   const { resolutions, pxPerDegree } = info;
+  // A set opened without a position, as from the paper, starts at its suggested view.
+  const view0 = (setName && set && set.view && !params.has("lon") && !params.has("lat")) ? set.view : {};
+  if (view0.seed !== undefined && !params.has("seed")) seedInput.value = String(view0.seed);
+  const start = (key) => params.get(key) ?? (view0[key] !== undefined ? String(view0[key]) : null);
   const projection = new ol.proj.Projection({ code: "WORLD", units: "pixels" });
   const source = new ol.source.TileImage({
     projection,
@@ -95,8 +130,8 @@ function startMap() {
   });
   const view = new ol.View({
     projection,
-    center: [Number(params.get("lon") || 0) * pxPerDegree, Number(params.get("lat") || 0) * pxPerDegree],
-    resolution: Number(params.get("res")) || resolutions[0] / 2,
+    center: [Number(start("lon") || 0) * pxPerDegree, Number(start("lat") || 0) * pxPerDegree],
+    resolution: Number(start("res")) || resolutions[0] / 2,
     minResolution: 0.25,
     maxResolution: resolutions[0],
   });

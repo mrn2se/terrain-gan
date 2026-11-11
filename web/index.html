@@ -16,16 +16,23 @@
   #panel label { display: block; }
   #panel small { display: block; color: #456; }
   #status.error { color: #a00; font-weight: 600; }
+  #panel { max-height: calc(100vh - 32px); overflow-y: auto; box-sizing: border-box; }
+  #note { margin: 4px 0 8px; font-size: 13px; color: #234; }
+  #note summary { cursor: pointer; color: #456; }
+  #note a, #panel .links a { color: #0a4f8a; }
+  #panel .links { margin-top: 6px; }
 </style>
 </head>
 <body>
 <div id="map"></div>
 <div id="panel">
   <label hidden>Models <select id="set"></select></label>
+  <details id="note" hidden open><summary>About these models</summary><div id="note-text"></div></details>
   <label>World seed <input id="seed" type="number" min="0" step="1"></label>
   <div id="status">Loading models…</div>
   <div id="pos">&nbsp;</div>
   <small>Invented terrain, computed in your browser by a GAN trained on ETOPO 2022 elevation data (NOAA). The coordinates are not real places.</small>
+  <div class="links"><a href="paper.html">Read the paper</a>: how the models work, and what each one in the list shows.</div>
 </div>
 <script type="module" src="js/app.js"></script>
 </body>

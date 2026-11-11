@@ -16,9 +16,12 @@ land fraction (0.36 vs. 0.36) and height variation (686 vs. 665 m). Generated te
 is plausible, but lacks long rivers and continuous ridges, and our evaluation is
 limited: there is no FID score and no user study. A converged single-scale model trained
 for comparison repeats one look everywhere, confirming that the cascade, not training
-length, removes the homogeneity. Repeated training runs of the world level differ about as
-much as changes to its training settings do, and checkpoints within a run nearly as much, so we
-keep the best of several runs as the default; among four, no run was best on every measure.
+length, removes the homogeneity. No level copies its training data. Errors at different
+levels can cancel: a too-rough world level hid refiners that add too little detail, so
+smoothing one exposed the other. Repeated training runs of the world level differ about as
+much as changes to its training settings do, and checkpoints within a run nearly as much, while
+one measurement carries noticeable sampling noise. We therefore keep the best of several runs,
+judged through the whole cascade; among four runs, none was best on every measure.
 
 ## 1. Introduction
 
@@ -40,6 +43,11 @@ Our contributions are modest and practical:
 2. A cascade small enough for a GTX 1650, with a browsable map that can compare
    against the ground truth at each zoom.
 3. A record of what failed, including one failure that a single metric hid.
+4. Controlled experiments on the world level's training, with repeated runs and an estimate of
+   the scores' sampling noise, showing how much of an apparent improvement is chance.
+
+The browser version offers every model set discussed here, and its copy of this report links
+each section to the sets it describes.
 
 ## 2. Related work
 
@@ -240,6 +248,7 @@ faint ring shapes that may be related.
 
 Sections 6.1 to 6.12 use the first world model, now `models/experiments/world_r1_10a.pt`. Since
 section 6.13, `models/world.pt` is a second run with the same settings; the refiners are unchanged.
+Every model set compared below can be opened in the browser version's Models list.
 
 ![Level 0 at step 20,000](docs/figures/world_level.png)
 
@@ -612,7 +621,7 @@ perfect model; bicubic upscaling of real input scores 234 and 221 at levels 1 an
 
 | Generated, 512 tiles | L0 slope ratio | L2 slope ratio | L2 height distance (m) | SWD L0 | SWD L1 | SWD L2 | L2 closed depressions |
 |---|---|---|---|---|---|---|---|
-| R1 10, run 1 (default) | 1.20 | 1.04 | 386 | 133 | 86 | 125 | 9.9% |
+| R1 10, run 1 (then the default) | 1.20 | 1.04 | 386 | 133 | 86 | 125 | 9.9% |
 | R1 10, run 2 | 1.08 | 0.92 | 148 | 92 | 95 | 128 | 7.1% |
 | R1 40, run 1 | 1.13 | 0.95 | 299 | 84 | 70 | 127 | 8.3% |
 | R1 40, run 2 | 1.42 | 1.14 | 296 | 174 | 85 | 110 | 8.3% |
@@ -640,7 +649,7 @@ things worse.
 
 The second R1 = 10 run is the most Earth-like world model so far by eye, with island arcs,
 trenches, rifts and coastal ranges (Figure 15, left), and with the current refiners it improves
-on the default in most statistics: height distance 148 against 386 m, 7.1% against 9.9% of land
+on the first run in most statistics: height distance 148 against 386 m, 7.1% against 9.9% of land
 in closed depressions, and lower SWD at level 0. A practical recipe follows: train several level-0
 models, which costs about 3 hours each, and keep the one that measures best. We did so, and the
 second R1 = 10 run is now the default world model, `models/world.pt`; the first is kept as
@@ -779,6 +788,21 @@ which helps on real input, but did not shrink the gap between real and generated
 seems to start at level 0, which is too rough, rather than in the refiners. Beckham and Pal (2017)
 instead propose joint training for the same symptom.
 
+Sections 6.11 to 6.15 show the other side of this gap. Once level 0 is smooth, the refiners'
+own deficit appears: on generated input they add as little detail as on real input, and the finest
+level comes out too flat. The levels therefore cannot be tuned one at a time. The refiners
+also amplify level 0's roughness (a difference of 0.08 in slope ratio became 0.19 at level 2),
+so their output depends more on level 0 than it should. Training the refiners on generated input,
+or giving them an explicit target for the amount of detail, might decouple the levels.
+
+**Chance and selection.** Four runs with the same settings gave level-0 SWDs from 60 to 131, a
+wider range than any change of R1 weight, and a single measurement carries about ±10. A trend
+over single runs, such as the R1 series of section 6.11, can therefore be mostly chance, as the
+repeats of section 6.13 showed. The practical answer is cheap: training a level-0 model costs about
+3 hours, measuring a candidate about 12 minutes, and checkpoints come free. But choosing needs the
+whole cascade measured, as the best level 0 by its own score did not give the best finest level,
+and it needs a decision on which measures count, as none of the candidates won on all of them.
+
 ## 8. Limitations of this evaluation
 
 - No FID or other standard score, and no human perceptual study. InfinityGAN and ALIS report
@@ -787,7 +811,7 @@ instead propose joint training for the same symptom.
   heightmaps poorly. We use the multi-scale sliced Wasserstein distance of Karras et al. (2018)
   instead (section 6.13), which is not comparable with other papers either.
 - Few controlled ablations. Several changes were made together, and most causes are hypotheses;
-  sections 6.8 to 6.13 are the exceptions.
+  sections 6.8 to 6.15 are the exceptions.
 - Mostly one training run per configuration (sections 6.13 and 6.15 show the spread between runs is large), and all visual checks by the authors.
 - Most scores come from one sample of 512 generated tiles, which carries about ±10 in SWD and
   ±0.02 in slope ratio (section 6.15).
@@ -801,12 +825,33 @@ instead propose joint training for the same symptom.
 
 A cascade of three small unpadded GANs with position-keyed randomness can generate an
 endless, exactly seamless world spanning continents to about 1 km per pixel, within 4 GB
-of GPU memory and about 8 hours of training time. The cascade addressed the homogeneity of a
-single-scale model. Producing organised long-distance features such as river networks is
-the main open problem, and theory on stationary generators suggests it will need a structural
-change and not more training. Images alone caught a failure that our roughness metric missed, so
-metrics and visual checks should be used together. Open questions are listed in
-[TODO.md](TODO.md).
+of GPU memory and about 8 hours of training time per cascade. What we learned:
+
+1. **Seamless tiles are cheap.** Unpadded filters, no image statistics and randomness keyed to
+   position give tiles that agree to floating-point precision, at every level (6.1).
+2. **Structure, not training length, removes homogeneity.** A converged single-scale model still
+   repeats one look everywhere; the cascade gives coasts, valleys and lakes at the same scale (6.9).
+   Its reach is still limited: beyond about 1,000 km land and sea alternate too quickly (6.7), and a
+   slower latent field fixes that statistic at a visual cost (6.8).
+3. **No copying.** Neither the world generator nor the refiners match real Earth better than real
+   crops match each other (6.3, 6.14).
+4. **Better than noise, short of real.** The GANs beat fractal noise with the real spectrum on
+   slopes and drainage at every level (6.7), but rivers do not gather into long networks, and 7–12% of land
+   sits in closed depressions at the finest level, against 5–6% for real terrain. A local refiner cannot
+   organise rivers; explicit river and ridge inputs look more promising than more training (7).
+5. **Errors cancel across levels.** A too-rough world level hid refiners that add too little detail
+   (6.7). Smoothing the world level, by a stronger gradient penalty or by choosing among runs,
+   exposed the deficit (6.11, 6.15); blurred conditioning raised the refiners' detail but on every
+   input alike (6.10, 6.12). The levels have to be judged and tuned together.
+6. **Look, and then measure.** A roughness score passed artefacts that the eye caught at once
+   (5); the other way round, a figure of closest matches suggested a difference in where detail
+   sits that a measure did not confirm (6.14). Neither images nor single numbers suffice alone.
+7. **Repeat before believing a trend.** Runs with the same settings differ as much as settings
+   do, checkpoints nearly as much, and one 512-tile measurement carries about ±10 in SWD (6.13,
+   6.15). Keeping the best of several runs is cheap, but needs the whole cascade measured and a
+   choice of which measures matter; we kept the run with the best balance as the default.
+
+Open questions are listed in [TODO.md](TODO.md).
 
 ## References
 

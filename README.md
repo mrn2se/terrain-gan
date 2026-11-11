@@ -50,7 +50,8 @@ right level for each zoom. The URL keeps the seed and position, so views can be
 shared. The browser needs internet access, because OpenLayers loads from a CDN.
 
 **The Models list** switches between the default models and the experiments of
-[PAPER.md](PAPER.md), keeping seed and position. The sets are listed in `models/sets.json`;
+[PAPER.md](PAPER.md), keeping seed and position, labelled with their paper section (hover for a
+note on what to look for). The sets are listed in `models/sets.json`;
 sets whose files are missing, such as those under `runs/` after a fresh clone, are left out.
 
 **Seed `-1` shows the real elevation data** at the same zoom levels, for direct
@@ -80,7 +81,9 @@ on this computer. Ctrl+C stops all three.
 ## Browser version
 
 `web/` is a static page that runs the models in the browser with no server code, ready for GitHub
-Pages. It has no real-Earth mode, since the data is too large to ship with it. Its models are not in
+Pages. It has no real-Earth mode, since the data is too large to ship with it. It groups the Models
+list by paper section, with a note on what each set shows, and includes the paper itself
+(`paper.html`), where each section links to the model sets it discusses. Its models are not in
 git, so export them first. See [web/README.md](web/README.md).
 
 ## The three levels
