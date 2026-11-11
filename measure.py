@@ -405,6 +405,7 @@ def main():
     p.add_argument("--out", default="docs/figures")
     p.add_argument("--threads", type=int, default=8)
     p.add_argument("--quick", action="store_true", help="skip the noise, hydrology, distance and similarity checks")
+    p.add_argument("--seed", type=int, default=0, help="for choosing generated tiles; others give the sampling noise")
     args = p.parse_args()
 
     torch.set_num_threads(args.threads)
@@ -415,7 +416,7 @@ def main():
     npy_full, ppd_full = cache_raster(args.data, args.cache_dir)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    rng = np.random.default_rng(0)
+    rng = np.random.default_rng(args.seed)
     report = {}
 
     for level in range(levels):
