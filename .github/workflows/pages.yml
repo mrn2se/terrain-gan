@@ -1,5 +1,4 @@
-# Publishes only the browser version, at <pages url>/preview/. The site root stays empty, and
-# search engines are asked not to index the page. Anyone with the link can still open it.
+# Publishes the browser version (map, paper and legal notice) at the root of the Pages site.
 name: Publish browser version
 
 on:
@@ -34,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}preview/
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -48,12 +47,8 @@ jobs:
         run: uv run --no-project --python 3.12 --with playwright python web/test/run_test.py
       - name: Collect the page
         run: |
-          mkdir -p _site/preview
-          cp -r web/index.html web/paper.html web/legal.html web/PAPER.md web/docs web/js web/models _site/preview/
-          for page in index paper legal; do
-            sed -i 's|<meta charset="utf-8">|<meta charset="utf-8">\n<meta name="robots" content="noindex">|' _site/preview/$page.html
-            grep -q 'name="robots"' _site/preview/$page.html
-          done
+          mkdir -p _site
+          cp -r web/index.html web/paper.html web/legal.html web/PAPER.md web/docs web/js web/models _site/
           find _site -type f
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

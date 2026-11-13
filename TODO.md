@@ -64,7 +64,7 @@ of this list, as the paper and commits refer to them.
 - [x] **G6. New default world model.** `models/world.pt` is now the second R1 10 run; the first is
   `models/experiments/world_r1_10a.pt`.
 - [x] **G3. Browser version.** `web/` runs all three levels and matches PyTorch in its tests.
-- [x] **G4. Publish the browser version.** On GitHub Pages under `preview/`. iPhones crashed after a
+- [x] **G4. Publish the browser version.** On GitHub Pages, at <https://mrn2se.github.io/terrain-gan/>. iPhones crashed after a
   tile or two; with 256 px chunks there, both CPU and WebGPU work on an iPhone.
 
 ## Next, easy

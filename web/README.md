@@ -44,10 +44,8 @@ sub-path like GitHub Pages does:
 ## Publish on GitHub Pages
 
 `.github/workflows/pages.yml` runs when the page or the models change on `master`. It exports the
-models, checks the page against PyTorch and publishes the page, scripts and exported models. They
-appear in the `preview/` subdirectory, the site root stays empty and search
-engines are asked not to index the page. This does not protect it: even from a private
-repository, a GitHub Pages site can be opened by anyone with the link.
+models, checks the page against PyTorch and publishes the map, the paper, the legal notice and the
+exported models at the root of the site, <https://mrn2se.github.io/terrain-gan/>.
 
 ## Options
 
