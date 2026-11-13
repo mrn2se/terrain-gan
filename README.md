@@ -208,7 +208,7 @@ It loads the data the same way training does, so the first run builds the same c
 
 | Part | License |
 |---|---|
-| Code | [PolyForm Noncommercial 1.0.0](LICENSE): free for research, teaching and other non-commercial use |
+| Code | [PolyForm Noncommercial 1.0.0](LICENSE.md): free for research, teaching and other non-commercial use |
 | Trained models (`models/`, and the ONNX files exported from them) | [CC BY-NC 4.0](models/LICENSE) |
 | Paper and figures (`PAPER.md`, `docs/figures/`) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 
