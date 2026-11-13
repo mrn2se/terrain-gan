@@ -203,3 +203,14 @@ It loads the data the same way training does, so the first run builds the same c
   weaker than the training samples suggest.
 - ETOPO "bed" data has no ice sheets, so terrain resembles bedrock in those areas.
 - Trained for 20,000 steps per level, with no quantitative score such as FID.
+
+## License
+
+| Part | License |
+|---|---|
+| Code | [PolyForm Noncommercial 1.0.0](LICENSE): free for research, teaching and other non-commercial use |
+| Trained models (`models/`, and the ONNX files exported from them) | [CC BY-NC 4.0](models/LICENSE) |
+| Paper and figures (`PAPER.md`, `docs/figures/`) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+
+For commercial use, contact [mrn2se](https://github.com/mrn2se). The training data, ETOPO 2022, is
+public domain data from NOAA NCEI.

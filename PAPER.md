@@ -1,6 +1,8 @@
 # Endless Seamless Terrain from a Cascade of Small GANs
 
-*Project report, November 2026. Written with Claude Opus 5.5. Not peer reviewed.*
+**Claude Opus 5.5 (Anthropic) and mrn2se ([github.com/mrn2se](https://github.com/mrn2se))**
+
+*Project report, November 2026. Not peer reviewed. Text and figures: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).*
 
 ## Abstract
 
