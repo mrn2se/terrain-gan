@@ -1,3 +1,23 @@
+# License
+
+This repository contains parts under three licenses:
+
+| Part | License |
+|---|---|
+| Code: everything not listed below | PolyForm Noncommercial License 1.0.0, the text below |
+| Trained models: the files in `models/` and its subfolders, and the ONNX files exported from them | Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0), see [models/LICENSE](models/LICENSE) |
+| Paper and figures: `PAPER.md` and `docs/figures/` | Creative Commons Attribution 4.0 International (CC BY 4.0), <https://creativecommons.org/licenses/by/4.0/> |
+
+For commercial use of any part, contact mrn2se (https://github.com/mrn2se).
+
+Required Notice: Copyright 2026 mrn2se (https://github.com/mrn2se)
+
+The text below is the standard PolyForm Noncommercial License 1.0.0, unmodified, as published at
+<https://polyformproject.org/licenses/noncommercial/1.0.0> (source:
+<https://github.com/polyformproject/polyform-licenses/blob/1.0.0/PolyForm-Noncommercial-1.0.0.md>).
+
+---
+
 # PolyForm Noncommercial License 1.0.0
 
 <https://polyformproject.org/licenses/noncommercial/1.0.0>
@@ -71,5 +91,3 @@ The **licensor** is the individual or entity offering these terms, and the **sof
 **Your licenses** are all the licenses granted to you for the software under these terms.
 
 **Use** means anything you do with the software requiring one of your licenses.
-
-Required Notice: Copyright 2026 mrn2se (https://github.com/mrn2se)
